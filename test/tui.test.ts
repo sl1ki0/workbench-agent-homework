@@ -265,10 +265,12 @@ test(
     await screen.expect(/test-pty-model/u);
     await screen.expect(/MCP/iu);
     await screen.expect(/tracker/iu);
-    await key('\t', /Ask for edits/iu);
-    await key('\t', /\bYOLO\b/u);
+    await key('\u001b[Z', /Ask for edits/iu);
+    await key('\u001b[Z', /\bYOLO\b/u);
+    await key('\u001b[Z', /\[Plan\]/u);
     await key('\u001b[Z', /Ask for edits/iu);
     await key('/statu', /\/status/u);
+    await key('\t', /› \/status/u);
     await key('\u0015/thinking low\r', /(?:thinking|рассуждени)[^\n]{0,100}\blow\b/iu);
 
     const activity = screen.output.length;
@@ -296,7 +298,7 @@ test(
     await key('\r', /Очередь · 1 · Queued first/u);
     await key('Queued second.\r', /Очередь · 2 · Queued first/u);
     await key('/queue\r', /2\. Queued second/u);
-    await key('\t', /\[YOLO\]/u);
+    await key('\u001b[Z', /\[YOLO\]/u);
     assert.equal(
       requests.length,
       2,

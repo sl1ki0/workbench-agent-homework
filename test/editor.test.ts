@@ -7,13 +7,23 @@ const press = (editor: EditorBuffer, name: string, modifiers: Omit<EditorKey, 'n
 
 const type = (editor: EditorBuffer, text: string) => editor.key(text, {});
 
-test('Tab preserves the draft and cycles permission profiles in both directions', () => {
-  const editor = new EditorBuffer(() => [{ name: '/stats', description: 'Show usage' }]);
+test('Shift+Tab cycles the mode without editing the draft; Tab completes the highlighted command', () => {
+  const editor = new EditorBuffer(() => [
+    { name: '/stats', description: 'Show usage' },
+    { name: '/session', description: 'Change session' },
+  ]);
   type(editor, '/s');
-  assert.deepEqual(press(editor, 'tab'), { type: 'cycle', direction: 1 });
-  assert.deepEqual(press(editor, 'tab', { shift: true }), { type: 'cycle', direction: -1 });
+  press(editor, 'down');
+  assert.deepEqual(press(editor, 'tab', { shift: true }), { type: 'cycle' });
   assert.equal(editor.view().text, '/s');
-  assert.equal(editor.view().suggestions[0]?.name, '/stats');
+  assert.equal(editor.view().selected, 1);
+  assert.deepEqual(press(editor, 'tab'), { type: 'change' });
+  assert.equal(editor.view().text, '/session');
+  assert.equal(press(editor, 'tab'), undefined);
+  assert.deepEqual(press(editor, 'return'), { type: 'submit', text: '/session' });
+  type(editor, 'draft');
+  assert.equal(press(editor, 'tab'), undefined);
+  assert.equal(editor.view().text, 'draft');
 });
 
 test('Ctrl+U clears the full multiline draft from its middle', () => {

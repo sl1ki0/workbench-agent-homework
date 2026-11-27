@@ -94,9 +94,9 @@ export async function chat(host: ChatHost): Promise<void> {
     return plan ? 'Plan' : mode === 'auto' ? 'YOLO' : 'Ask for edits';
   }
 
-  function cycle(direction: 1 | -1): void {
+  function cycle(): void {
     const index = permissions.indexOf(permission());
-    const next = permissions[(index + direction + permissions.length) % permissions.length];
+    const next = permissions[(index + 1) % permissions.length];
     plan = next === 'Plan';
     mode = next === 'YOLO' ? 'auto' : 'safe';
     screen?.changed();
@@ -156,7 +156,9 @@ export async function chat(host: ChatHost): Promise<void> {
                 .join('\n'),
             );
             if (screen)
-              terminal.note('Tab / Shift+Tab · режим   Ctrl+U · очистить   Ctrl+J · новая строка');
+              terminal.note(
+                'Shift+Tab · режим   Tab · подставить команду   Ctrl+U · очистить   Ctrl+J · новая строка',
+              );
             break;
           case 'status':
             status();

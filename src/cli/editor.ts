@@ -20,7 +20,7 @@ interface EditorOptions {
   onOverlayKey?(value: string | undefined, key: EditorKey): boolean;
   onChange(): void;
   onSubmit(text: string): void;
-  onCycleMode(direction: 1 | -1): void;
+  onCycleMode(): void;
   onExit(): void;
   onInterrupt?(): void;
 }
@@ -35,7 +35,7 @@ export interface EditorKey {
 
 type EditorAction =
   | { type: 'submit'; text: string }
-  | { type: 'cycle'; direction: 1 | -1 }
+  | { type: 'cycle' }
   | { type: 'exit' }
   | { type: 'interrupt' }
   | { type: 'change' };
@@ -112,7 +112,11 @@ export class EditorBuffer {
       this.replace('');
       return { type: 'change' };
     }
-    if (key.name === 'tab') return { type: 'cycle', direction: key.shift ? -1 : 1 };
+    if (key.name === 'tab') {
+      if (key.shift) return { type: 'cycle' };
+      if (this.acceptSuggestion()) return { type: 'change' };
+      return;
+    }
     if (key.name === 'd' && key.ctrl && !this.text)
       return this.busy ? { type: 'interrupt' } : { type: 'exit' };
     if (key.name === 'return' && !key.meta && !key.shift) return this.submit();
@@ -360,7 +364,7 @@ export class TerminalEditor {
         this.options.onChange();
         break;
       case 'cycle':
-        this.options.onCycleMode(action.direction);
+        this.options.onCycleMode();
         this.options.onChange();
         break;
       case 'submit':

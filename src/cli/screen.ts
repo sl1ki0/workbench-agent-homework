@@ -397,7 +397,7 @@ export class ChatScreen {
     }
     if (showLegend)
       add(
-        `Skills ${this.inventory.skills.length} · MCP ${this.inventory.servers.filter(({ error }) => !error).length}    Tab режим · Ctrl+U очистить · /help`,
+        `Skills ${this.inventory.skills.length} · MCP ${this.inventory.servers.filter(({ error }) => !error).length}    Shift+Tab режим · Tab команда · Ctrl+U очистить`,
         '2',
       );
 
