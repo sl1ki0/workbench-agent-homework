@@ -103,6 +103,13 @@ function diffText(path: string, before: string | null, after: string | null): st
 }
 
 export class Terminal {
+  surface?: { writeLine(value: string): void };
+
+  private line(value: string) {
+    if (this.surface) this.surface.writeLine(value);
+    else console.log(value);
+  }
+
   constructor(
     readonly color: boolean,
     readonly json: boolean,
@@ -110,7 +117,7 @@ export class Terminal {
 
   help(extraHelp: string[] = []) {
     const [commands, flags] = helpLines.join('\n').split('\n\n');
-    console.log(
+    this.line(
       `${this.accent('Агент · терминал')}\n\n${commands}${extraHelp.length ? `\n${extraHelp.join('\n')}` : ''}\n\n${flags}`,
     );
   }
@@ -118,11 +125,11 @@ export class Terminal {
   start(settings: ModelSettings, mode: string, session?: string) {
     const title = this.accent('◆ Агент');
     const divider = tone(this.color, '2', '─'.repeat(54));
-    console.log(
+    this.line(
       `${title}  ${divider}\n${terminalText(settings.model)} · ${settings.provider} · ${mode}`,
     );
-    if (session) console.log(`Сессия ${terminalText(session)}`);
-    console.log('/help — команды · /exit — выход\n');
+    if (session) this.line(`Сессия ${terminalText(session)}`);
+    this.line('/help — команды · /exit — выход\n');
   }
 
   accent(value: string) {
@@ -130,12 +137,14 @@ export class Terminal {
   }
 
   note(value: string) {
-    if (!this.json) console.log(terminalText(value));
+    if (!this.json) this.line(terminalText(value));
   }
 
   error(value: unknown) {
     const message = value instanceof Error ? value.message : String(value);
-    console.error(tone(this.color, '1;31', `Ошибка · ${terminalText(message)}`));
+    const error = tone(this.color, '1;31', `Ошибка · ${terminalText(message)}`);
+    if (this.surface) this.surface.writeLine(error);
+    else console.error(error);
   }
 
   event(event: AgentEvent) {
@@ -144,7 +153,7 @@ export class Terminal {
     const target = eventTarget(data);
     switch (type) {
       case 'model_request':
-        console.log(`  ${this.accent('⋯')} Модель · запрос ${shorten(data.request)}`);
+        this.line(`  ${this.accent('⋯')} Модель · запрос ${shorten(data.request)}`);
         break;
       case 'tool_call': {
         const source = data.args ?? parseToolArguments(data.arguments);
@@ -156,22 +165,30 @@ export class Terminal {
               : value,
           ]),
         );
-        console.log(`  ${this.accent('→')} ${target} ${shorten(args, 125)}`);
+        this.line(`  ${this.accent('→')} ${target} ${shorten(args, 125)}`);
         break;
       }
       case 'tool_result': {
         const result = record(data.result);
         if (result.ok) {
-          console.log(
-            `  ${tone(this.color, '32', '✓')} ${target}${result.truncated ? ' · результат обрезан' : ''}`,
+          const output = record(result.output);
+          const detail = typeof output.count === 'number' ? ` · записей ${output.count}` : '';
+          this.line(
+            `  ${tone(this.color, '32', '✓')} ${target}${detail}${result.truncated ? ' · результат обрезан' : ''}`,
           );
         }
         break;
       }
+      case 'tool_started':
+        if (this.surface) this.line(`    ${tone(this.color, '2', '↳')} Выполняю ${target}`);
+        break;
       case 'tool_error':
-        console.log(
+        this.line(
           `  ${tone(this.color, '33', '!')} ${target} · ${shorten(data.error ?? record(data.result).error)}`,
         );
+        break;
+      case 'tool_denied':
+        if (this.surface) this.line(`    ${tone(this.color, '33', '↳')} Действие отклонено`);
         break;
       case 'skill_discovered':
       case 'skills_discovered':
@@ -179,38 +196,38 @@ export class Terminal {
           const names = Array.isArray(data.skills)
             ? data.skills.map((skill) => record(skill).name)
             : data.names;
-          console.log(
+          this.line(
             `  ${this.accent('✦')} Каталог скиллов · ${shorten(data.count)} · ${shorten(names ?? data.name)}`,
           );
         }
         break;
       case 'skill_loaded':
-        console.log(`  ${this.accent('✦')} Скилл загружен · ${shorten(data.name)}`);
+        this.line(`  ${this.accent('✦')} Скилл загружен · ${shorten(data.name)}`);
         break;
       case 'skill_error':
-        console.log(
+        this.line(
           `  ${tone(this.color, '33', '!')} Скилл · ${shorten(data.path)} · ${shorten(data.error)}`,
         );
         break;
       case 'mcp_connected':
-        console.log(
+        this.line(
           `  ${this.accent('↔')} MCP · ${shorten(data.server)} · инструменты ${shorten(data.tools)}`,
         );
         break;
       case 'mcp_error':
-        console.log(
+        this.line(
           `  ${tone(this.color, '33', '!')} MCP · ${shorten(data.server)} · ${shorten(data.error)}`,
         );
         break;
     }
   }
 
-  run(run: CliRun) {
+  run(run: CliRun, options: { showFinal?: boolean; showUsage?: boolean } = {}) {
     if (this.json) return this.printJson(run);
     this.note(
       `\n${statuses[run.status] ?? run.status} · запуск ${run.id} · сессия ${run.sessionId}`,
     );
-    if (run.final) this.note(`\n${run.final}\n`);
+    if (run.final && options.showFinal !== false) this.note(`\n${run.final}\n`);
     if (run.error) this.error(run.error);
     if (run.status === 'awaiting_plan') this.tasks(run);
     if (run.pending) {
@@ -221,7 +238,8 @@ export class Terminal {
         this.diff(changes);
       }
     }
-    this.note(`Модель · ${usageLine(run.usage)} · запросы ${run.spent.modelCalls}\n`);
+    if (options.showUsage !== false)
+      this.note(`Модель · ${usageLine(run.usage)} · запросы ${run.spent.modelCalls}\n`);
   }
 
   tasks(run: CliRun) {
@@ -281,13 +299,13 @@ export class Terminal {
             : line.startsWith('@@')
               ? '36'
               : '0';
-        console.log(tone(this.color, color, cleaned));
+        this.line(tone(this.color, color, cleaned));
       }
     }
   }
 
   printJson(value: unknown) {
-    console.log(JSON.stringify(value));
+    this.line(JSON.stringify(value));
   }
 }
 

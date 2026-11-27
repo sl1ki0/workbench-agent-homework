@@ -1,8 +1,11 @@
 {
   "name": "workbench-agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "workbench-agent": "bin/workbench-agent.mjs"
+  },
   "description": "Terminal workspace agent with a resumable TypeScript runtime",
   "engines": {
     "node": ">=22.13"
@@ -15,12 +18,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run format:check && npm test",
-    "eval": "node dist/eval/index.js"
+    "eval": "node dist/eval/index.js",
+    "gui": "node dist/src/cli/index.js gui"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "ajv": "^8.17.1",
     "diff": "^8.0.2",
+    "string-width": "^7.2.0",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

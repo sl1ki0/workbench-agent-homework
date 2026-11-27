@@ -1,6 +1,6 @@
 import { checkCopy } from './checks/no-skill.js';
-import { checkOpenTasks } from './checks/open-tasks.js';
-import { checkProgress } from './checks/progress.js';
+import { checkClosedTasks, checkOpenTasks } from './checks/open-tasks.js';
+import { checkAlternateProgress, checkProgress } from './checks/progress.js';
 import type { Check } from './checks/markdown.js';
 
 export interface CallExpectation {
@@ -65,5 +65,42 @@ export const scenarios: EvaluationCase[] = [
       { name: 'write_file', args: { path: 'evidence.txt' } },
     ],
     check: checkCopy,
+  },
+];
+
+export const extendedScenarios: EvaluationCase[] = [
+  ...scenarios,
+  {
+    id: 'closed-tasks',
+    prompt:
+      'Сохрани закрытые задачи учебного трекера в closed-tasks.md. Нужна Markdown-таблица со столбцами ID и Название, отсортированная по ID.',
+    artifact: 'closed-tasks.md',
+    expectedSkill: null,
+    allowedTools: [
+      'list_files',
+      'read_file',
+      'write_file',
+      'mcp_tracker_list_tasks',
+      'mcp_tracker_get_task',
+    ],
+    requiredCalls: [
+      { name: 'mcp_tracker_list_tasks' },
+      { name: 'write_file', args: { path: 'closed-tasks.md' } },
+    ],
+    check: checkClosedTasks,
+  },
+  {
+    id: 'progress-variant',
+    prompt:
+      'Собери progress-summary.md по progress.json. Напиши Markdown-таблицу Ученик, Завершено, Минуты. Включи всех учеников, считай только завершённые занятия, последней строкой дай Итого.',
+    source: 'progress.json',
+    artifact: 'progress-summary.md',
+    expectedSkill: 'progress-summary',
+    allowedTools: ['list_files', 'read_file', 'write_file'],
+    requiredCalls: [
+      { name: 'read_file', args: { path: 'progress.json' } },
+      { name: 'write_file', args: { path: 'progress-summary.md' } },
+    ],
+    check: checkAlternateProgress,
   },
 ];

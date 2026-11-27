@@ -6,14 +6,28 @@ import {
   openSync,
   readFileSync,
   readdirSync,
+  realpathSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseDocument } from 'yaml';
 import type { AgentEvent, ToolDefinition } from '../types.js';
+import { isSkillName, type SkillSelection } from './selection.js';
+
+export { readSkillSelection, writeSkillSelection } from './selection.js';
+export type { SkillSelection } from './selection.js';
 
 interface SkillMetadata {
   name: string;
   description: string;
+}
+
+export interface SkillCatalogEntry extends SkillMetadata {
+  enabled: boolean;
+  estimatedTokens: number;
+}
+
+interface DiscoveryOptions extends Partial<SkillSelection> {
+  projectRoots?: string[];
 }
 
 interface Skill extends SkillMetadata {
@@ -22,7 +36,6 @@ interface Skill extends SkillMetadata {
 
 type CatalogEvent = Pick<AgentEvent, 'type' | 'data'>;
 const maxSkillBytes = 64 * 1024;
-const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function readDocument(path: string): string {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -51,12 +64,7 @@ function parseSkill(folder: string, name: string): Skill {
     throw new Error('Frontmatter must be a YAML mapping');
   }
   const field = metadata as Record<string, unknown>;
-  if (
-    typeof field.name !== 'string' ||
-    field.name.length > 64 ||
-    !namePattern.test(field.name) ||
-    field.name !== name
-  ) {
+  if (!isSkillName(field.name) || field.name !== name) {
     throw new Error(
       'Name must match the folder and use 1–64 lowercase letters, digits and single hyphens',
     );
@@ -78,24 +86,45 @@ function diagnostic(path: string, error: unknown): CatalogEvent {
   };
 }
 
-function scan(root: string, skills: Map<string, Skill>, events: CatalogEvent[]): void {
+function missing(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException).code === 'ENOENT';
+}
+
+function scan(
+  root: string,
+  skills: Map<string, Skill>,
+  events: CatalogEvent[],
+  scope: 'trusted' | 'nested-project' | 'direct-project',
+): void {
+  const project = scope !== 'trusted';
   let folders;
   try {
-    if (!lstatSync(root).isDirectory()) throw new Error('Skill root must be a directory');
+    if (!lstatSync(root).isDirectory() || (project && realpathSync(root) !== root)) {
+      throw new Error('Skill root must be a directory without symbolic links');
+    }
     folders = readdirSync(root, { withFileTypes: true }).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
   } catch (error) {
-    events.push(diagnostic(root, error));
+    if (!project || !missing(error)) events.push(diagnostic(root, error));
     return;
   }
   for (const folder of folders) {
+    if (scope === 'direct-project' && folder.name === 'skills') continue;
     const path = join(root, folder.name);
     if (folder.isSymbolicLink()) {
       events.push(diagnostic(path, 'Skill links are not followed'));
       continue;
     }
     if (!folder.isDirectory()) continue;
+    if (scope === 'direct-project') {
+      try {
+        lstatSync(join(path, 'SKILL.md'));
+      } catch (error) {
+        if (!missing(error)) events.push(diagnostic(path, error));
+        continue;
+      }
+    }
     try {
       const skill = parseSkill(path, folder.name);
       if (skills.has(skill.name)) throw new Error(`Duplicate skill name: ${skill.name}`);
@@ -106,21 +135,51 @@ function scan(root: string, skills: Map<string, Skill>, events: CatalogEvent[]):
   }
 }
 
-export function loadSkills(roots: string[]): {
+export function loadSkills(
+  roots: string[],
+  options: DiscoveryOptions = {},
+): {
   tools: ToolDefinition[];
   systemPrompt: string;
   initialEvents: CatalogEvent[];
+  catalog: SkillCatalogEntry[];
 } {
   const skills = new Map<string, Skill>();
   const initialEvents: CatalogEvent[] = [];
-  for (const root of new Set(roots.map((path) => resolve(path)))) scan(root, skills, initialEvents);
+  for (const root of new Set(roots.map((path) => resolve(path)))) {
+    scan(root, skills, initialEvents, 'trusted');
+  }
+  for (const root of new Set(options.projectRoots?.map((path) => resolve(path)))) {
+    scan(join(root, 'skills'), skills, initialEvents, 'nested-project');
+    scan(root, skills, initialEvents, 'direct-project');
+  }
 
-  const catalog = [...skills.values()].map(({ name, description }) => ({ name, description }));
+  const enabled = options.enabled !== false;
+  const disabled = new Set(options.disabled ?? []);
+  const catalog: SkillCatalogEntry[] = [...skills.values()].map(
+    ({ name, description, document }) => ({
+      name,
+      description,
+      enabled: enabled && !disabled.has(name),
+      estimatedTokens: Math.ceil(Buffer.byteLength(document, 'utf8') / 4),
+    }),
+  );
+  const available = catalog
+    .filter(({ enabled }) => enabled)
+    .map(({ name, description }) => ({
+      name,
+      description,
+    }));
   initialEvents.unshift({
     type: 'skills_discovered',
-    data: { skills: catalog, count: catalog.length },
+    data: {
+      skills: available,
+      count: catalog.length,
+      catalog,
+      enabled_count: available.length,
+    },
   });
-  if (!catalog.length) return { tools: [], systemPrompt: '', initialEvents };
+  if (!available.length) return { tools: [], systemPrompt: '', initialEvents, catalog };
 
   const loader: ToolDefinition = {
     name: 'load_skill',
@@ -128,15 +187,18 @@ export function loadSkills(roots: string[]): {
       'Get the full instructions for one skill from the catalog. Call only when its description matches the current user task.',
     schema: {
       type: 'object',
-      properties: { name: { type: 'string', enum: catalog.map(({ name }) => name) } },
+      properties: { name: { type: 'string', enum: available.map(({ name }) => name) } },
       required: ['name'],
       additionalProperties: false,
     },
     sideEffect: false,
     safeRetry: true,
     async execute(args) {
-      const skill = skills.get(String(args.name));
-      if (!skill) return { ok: false, error: 'Skill is not in the discovered catalog' };
+      const name = String(args.name);
+      const skill = skills.get(name);
+      if (!skill || disabled.has(name)) {
+        return { ok: false, error: 'Skill is not in the available catalog' };
+      }
       return { ok: true, output: { name: skill.name, instructions: skill.document } };
     },
     source: { kind: 'skill' },
@@ -145,10 +207,11 @@ export function loadSkills(roots: string[]): {
   return {
     tools: [loader],
     initialEvents,
+    catalog,
     systemPrompt: [
       'Optional skills are listed below by name and description.',
       'Before taking actions, decide whether a skill matches the current user request. Load a matching skill with load_skill and follow its instructions within existing tool policy. When no skill fits, use project tools directly.',
-      JSON.stringify(catalog),
+      JSON.stringify(available),
     ].join('\n'),
   };
 }

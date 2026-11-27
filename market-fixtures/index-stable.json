@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "releases": [
+    {
+      "name": "progress-summary",
+      "version": "1.0.0",
+      "sha256": "f1785e3fd661d3867ff6aaf7bbd79c383b10b95568baf7bf672ea4353cf86d41",
+      "description": "Use for aggregating lesson completion and duration from a local educational progress dataset into a per-learner summary.",
+      "artifact": "skills/progress-summary/1.0.0/SKILL.md",
+      "releasedAt": "2026-11-21T00:00:00.000Z",
+      "notes": "Initial progress summary for completed lessons."
+    },
+    {
+      "name": "progress-summary",
+      "version": "1.1.0",
+      "sha256": "6228537d3a97c8eedc7c5c71d405d6c52a69d8ea8d5f94c892a060357cda64ca",
+      "description": "Use for aggregating lesson completion and duration from a local educational progress dataset into a per-learner summary.",
+      "artifact": "skills/progress-summary/1.1.0/SKILL.md",
+      "releasedAt": "2026-11-22T00:00:00.000Z",
+      "notes": "Adds a second consistency check for the total row."
+    }
+  ]
+}

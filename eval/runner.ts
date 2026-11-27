@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { installationRoot } from '../src/cli/paths.js';
 import { openMcp } from '../src/mcp/index.js';
 import { makeModel, type ModelSettings } from '../src/model/index.js';
 import {
@@ -38,16 +39,18 @@ export const limits: Limits = {
   sideEffects: 8,
   resultBytes: 64_000,
 };
-const fixtureDirectory = 'eval/fixtures';
+const fixtureDirectory = join(installationRoot, 'eval', 'fixtures');
 const policyFile = `${fixtureDirectory}/policy.json`;
-const mcpFile = 'config/mcp.json';
-const skillRoots = ['skills'];
+const mcpFile = join(installationRoot, 'config', 'mcp.json');
+const skillRoots = [join(installationRoot, 'skills')];
 const variants: Variant[] = ['A', 'B'];
 
-interface TrialSpec {
+export interface TrialSpec {
   scenario: EvaluationCase;
   variant: Variant;
   trial: number;
+  skillDirectories?: string[];
+  routingVariant?: Variant;
 }
 
 type EvaluationModel = Model & { settings: ModelSettings };
@@ -84,7 +87,7 @@ function jsonLine(data: unknown): string {
 }
 
 function cleanText(value: string, scratch: string): string {
-  return value.replaceAll(process.cwd(), '<repo>').replaceAll(scratch, '<trial>');
+  return value.replaceAll(scratch, '<trial>').replaceAll(installationRoot, '<repo>');
 }
 
 function infrastructureError(error: unknown, scratch: string): string {
@@ -120,7 +123,11 @@ function inspectOutcome(
   };
 }
 
-async function runTrial(spec: TrialSpec, output: string, model: Model): Promise<TrialRow> {
+export async function runEvaluationTrial(
+  spec: TrialSpec,
+  output: string,
+  model: Model,
+): Promise<TrialRow> {
   const { scenario, variant, trial } = spec;
   const directory = join(output, 'trials', scenario.id, `${variant}${trial}`);
   const scratch = realpathSync(mkdtempSync(join(tmpdir(), 'workbench-eval-')));
@@ -146,7 +153,8 @@ async function runTrial(spec: TrialSpec, output: string, model: Model): Promise<
         join(workspaceRoot, scenario.source),
       );
     const workspace = new Workspace(workspaceRoot, readPolicy(policyFile));
-    const skills = variant === 'B' ? loadSkills(skillRoots) : undefined;
+    const roots = spec.skillDirectories ?? (variant === 'B' ? skillRoots : undefined);
+    const skills = roots ? loadSkills(roots) : undefined;
     const mcp = await openMcp(mcpFile);
     try {
       agent = new Agent({
@@ -190,7 +198,7 @@ async function runTrial(spec: TrialSpec, output: string, model: Model): Promise<
     writeFileSync(path, cleanText(events, scratch));
     journal = relative(output, path);
   }
-  const routing = checkRouting(scenario, variant, run?.events ?? []);
+  const routing = checkRouting(scenario, spec.routingVariant ?? variant, run?.events ?? []);
   const tools = checkTools(scenario, run?.events ?? [], run?.records ?? []);
   if (run?.error) error ??= cleanText(run.error, scratch);
   if (run && run.status !== 'completed') error ??= `Агент остановился со статусом ${run.status}.`;
@@ -243,19 +251,20 @@ function frozenFiles(root: string): string[] {
 }
 
 function checksums(): Record<string, string> {
-  const evalFiles = readdirSync('eval')
+  const repo = (path: string) => join(installationRoot, path);
+  const evalFiles = readdirSync(repo('eval'))
     .filter((name) => name.endsWith('.ts'))
-    .map((name) => join('eval', name));
+    .map((name) => repo(join('eval', name)));
   const paths = [
-    'package-lock.json',
-    'docs/evaluation-protocol.md',
+    repo('package-lock.json'),
+    repo('docs/evaluation-protocol.md'),
     mcpFile,
-    ...(existsSync('config/Modelfile.eval') ? ['config/Modelfile.eval'] : []),
-    'src/types.ts',
+    ...(existsSync(repo('config/Modelfile.eval')) ? [repo('config/Modelfile.eval')] : []),
+    repo('src/types.ts'),
     ...['mcp', 'model', 'runtime', 'skills', 'workspace'].flatMap((part) =>
-      frozenFiles(join('src', part)),
+      frozenFiles(repo(join('src', part))),
     ),
-    ...frozenFiles('eval/checks'),
+    ...frozenFiles(repo('eval/checks')),
     ...frozenFiles(fixtureDirectory),
     ...skillRoots.flatMap((root) => frozenFiles(root)),
     ...evalFiles,
@@ -263,7 +272,10 @@ function checksums(): Record<string, string> {
   return Object.fromEntries(
     paths
       .sort()
-      .map((path) => [path, createHash('sha256').update(readFileSync(path)).digest('hex')]),
+      .map((path) => [
+        relative(installationRoot, path),
+        createHash('sha256').update(readFileSync(path)).digest('hex'),
+      ]),
   );
 }
 
@@ -271,14 +283,16 @@ export async function executeTrials(
   output: string,
   smoke?: Pick<TrialSpec, 'scenario' | 'variant'>,
   testAdapter?: EvaluationModel,
+  options: { suite?: EvaluationCase[]; onTrial?: (trial: TrialRow) => void } = {},
 ): Promise<void> {
   const model = testAdapter ?? makeModel();
   mkdirSync(output, { recursive: true });
   if (readdirSync(output).length)
     throw new Error('Каталог eval уже содержит результаты. Укажите новый каталог.');
+  const suite = options.suite ?? scenarios;
   const queue = smoke
     ? [{ ...smoke, trial: 1 }]
-    : scenarios.flatMap((scenario) =>
+    : suite.flatMap((scenario) =>
         Array.from({ length: trialsPerVariant }, (_, i) =>
           variants.map((variant) => ({ scenario, variant, trial: i + 1 })),
         ).flat(),
@@ -291,10 +305,13 @@ export async function executeTrials(
     model: model.settings,
     mode,
     limits,
-    mcp: mcpFile,
-    policy: policyFile,
-    configurations: { A: { skills: false }, B: { skills: true, directories: skillRoots } },
-    scenarios: scenarios.map(
+    mcp: relative(installationRoot, mcpFile),
+    policy: relative(installationRoot, policyFile),
+    configurations: {
+      A: { skills: false },
+      B: { skills: true, directories: skillRoots.map((path) => relative(installationRoot, path)) },
+    },
+    scenarios: suite.map(
       ({ id, prompt, source, artifact, expectedSkill, allowedTools, requiredCalls }) => ({
         id,
         prompt,
@@ -309,10 +326,12 @@ export async function executeTrials(
     files_sha256: files,
   });
   for (const spec of queue) {
-    const row = await runTrial(spec, output, model);
-    process.stdout.write(
-      `${row.case_id} ${row.variant}${row.trial} · ${row.status} · outcome=${row.outcome_pass} · routing=${row.routing_pass_or_na} · ${row.run_id ?? 'без run_id'}\n`,
-    );
+    const row = await runEvaluationTrial(spec, output, model);
+    if (options.onTrial) options.onTrial(row);
+    else
+      process.stdout.write(
+        `${row.case_id} ${row.variant}${row.trial} · ${row.status} · outcome=${row.outcome_pass} · routing=${row.routing_pass_or_na} · ${row.run_id ?? 'без run_id'}\n`,
+      );
   }
   const after = checksums();
   if (JSON.stringify(after) !== JSON.stringify(files)) {

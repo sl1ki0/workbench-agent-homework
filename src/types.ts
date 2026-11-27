@@ -27,8 +27,15 @@ export interface ModelReply {
   usage?: Usage;
 }
 
+export type ModelProgress =
+  { type: 'thinking' } | { type: 'text'; text: string } | { type: 'tool'; name: string };
+
 export interface Model {
-  complete(messages: Message[], tools: ToolDefinition[]): Promise<ModelReply>;
+  complete(
+    messages: Message[],
+    tools: ToolDefinition[],
+    observe?: (progress: ModelProgress) => void,
+  ): Promise<ModelReply>;
 }
 
 export interface ToolContext {

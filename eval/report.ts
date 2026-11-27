@@ -99,39 +99,42 @@ function describeOutcome(output: string, trial: TrialRow): string {
   return details.outcome_checks.join(' ');
 }
 
-function hypothesis(trials: TrialRow[]): string {
-  const count = (variant: Variant, control: boolean) =>
-    trials.filter(
-      (trial) =>
-        trial.variant === variant &&
-        trial.outcome_pass &&
-        (trial.case_id === 'no-skill') === control,
-    ).length;
-  const before = count('A', false);
-  const after = count('B', false);
-  const controlBefore = count('A', true);
-  const controlAfter = count('B', true);
-  const confirmed = after > before && controlAfter >= controlBefore;
-  return `Гипотеза о качестве ${confirmed ? 'подтвердилась' : 'не подтвердилась'} в этой серии. В двух сценариях со скиллами получено ${before}/6 корректных артефактов в A и ${after}/6 в B. В контрольном сценарии получено ${controlBefore}/3 в A и ${controlAfter}/3 в B.`;
+function hypothesis(trials: TrialRow[], controls: Set<string>): string {
+  const count = (variant: Variant, control: boolean) => {
+    const selected = trials.filter(
+      ({ variant: group, case_id }) => group === variant && controls.has(case_id) === control,
+    );
+    return {
+      passed: selected.filter(({ outcome_pass }) => outcome_pass).length,
+      total: selected.length,
+    };
+  };
+  const a = count('A', false);
+  const b = count('B', false);
+  const controlA = count('A', true);
+  const controlB = count('B', true);
+  const confirmed = b.passed > a.passed && controlB.passed >= controlA.passed;
+  return `Гипотеза о качестве ${confirmed ? 'подтвердилась' : 'не подтвердилась'} в этой серии. В сценариях со скиллами получено ${a.passed}/${a.total} корректных артефактов в A и ${b.passed}/${b.total} в B. В контрольных сценариях получено ${controlA.passed}/${controlA.total} в A и ${controlB.passed}/${controlB.total} в B.`;
 }
 
-function tokenFinding(trials: TrialRow[]): string {
-  const applicable = trials.filter(({ case_id }) => case_id !== 'no-skill');
-  if (applicable.some(({ usage }) => usage?.input.status !== 'complete')) {
-    return 'Часть попыток со скиллами имеет неполный usage, поэтому сравнение входного расхода ограничено доступными значениями в сводке.';
+function tokenFinding(trials: TrialRow[], controls: Set<string>): string {
+  const applicable = trials.filter(({ case_id }) => !controls.has(case_id));
+  if (!applicable.length || applicable.some(({ usage }) => usage?.input.status !== 'complete')) {
+    return 'Доступность usage ограничивает сравнение. В сводке приведены известные значения расхода.';
   }
-  const average = (variant: Variant) =>
-    applicable
-      .filter((trial) => trial.variant === variant)
-      .reduce((sum, trial) => sum + (trial.input_tokens ?? 0), 0) / 6;
+  const average = (variant: Variant) => {
+    const selected = applicable.filter((trial) => trial.variant === variant);
+    return selected.reduce((sum, trial) => sum + (trial.input_tokens ?? 0), 0) / selected.length;
+  };
   const a = average('A');
   const b = average('B');
-  return `В двух сценариях со скиллами средний входной расход составил ${a.toFixed(1)} токена в A и ${b.toFixed(1)} в B. Ожидание роста расхода ${b > a ? 'подтвердилось' : 'не подтвердилось'}.`;
+  return `В сценариях со скиллами средний входной расход составил ${a.toFixed(1)} токена в A и ${b.toFixed(1)} в B. Ожидание роста расхода ${b > a ? 'подтвердилось' : 'не подтвердилось'}.`;
 }
 
 interface ManifestSummary {
   experiment: 'smoke' | 'A/B' | 'mock';
   order: [string, Variant, number][];
+  scenarios?: { id: string; expectedSkill: string | null }[];
   model: { model: string; temperature: number; maxTokens: number; timeoutMs: number };
 }
 
@@ -141,13 +144,20 @@ export function writeReport(output: string): void {
   ) as ManifestSummary;
   const trials = readLines<TrialRow>(join(output, 'trials.jsonl'));
   const ids = [...new Set(manifest.order.map(([id]) => id))];
+  const expected = manifest.order.length;
+  const controls = new Set(
+    manifest.scenarios?.filter(({ expectedSkill }) => !expectedSkill).map(({ id }) => id) ?? [
+      'no-skill',
+    ],
+  );
   const completeSeries =
     manifest.experiment === 'A/B' &&
     existsSync(join(output, 'completion.json')) &&
-    trials.length === 18 &&
+    expected > 0 &&
+    trials.length === expected &&
     trials.every(({ run_id }) => run_id !== null) &&
-    new Set(trials.map(({ run_id }) => run_id)).size === 18 &&
-    new Set(trials.map(({ session_id }) => session_id)).size === 18 &&
+    new Set(trials.map(({ run_id }) => run_id)).size === expected &&
+    new Set(trials.map(({ session_id }) => session_id)).size === expected &&
     trials.every((trial, index) => {
       const [id, variant, number] = manifest.order[index] ?? [];
       return trial.case_id === id && trial.variant === variant && trial.trial === number;
@@ -161,7 +171,7 @@ export function writeReport(output: string): void {
       ? 'Детерминированная проверка стенда с тестовым адаптером. Данные этой проверки не входят в эксперимент.'
       : manifest.experiment === 'smoke'
         ? 'Пробный запуск вне основной серии.'
-        : `Сохранено ${trials.length} из 18 попыток.`,
+        : `Сохранено ${trials.length} из ${expected} попыток.`,
     '',
     '## Сводка',
     '',
@@ -241,9 +251,9 @@ export function writeReport(output: string): void {
       '',
       '## Вывод',
       '',
-      hypothesis(trials),
+      hypothesis(trials, controls),
       '',
-      tokenFinding(trials),
+      tokenFinding(trials, controls),
       '',
       'Результат относится к этому набору сценариев и локальной модели. Три попытки на вариант в сценарии ограничивают обобщение.',
     );

@@ -1,15 +1,17 @@
-import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { resolvePaths } from './paths.js';
 
 const optionSchema = {
   help: { type: 'boolean', short: 'h', default: false },
-  workspace: { type: 'string', default: 'workspace' },
-  policy: { type: 'string', default: 'config/policy.json' },
-  'state-dir': { type: 'string', default: '.agent' },
+  workspace: { type: 'string' },
+  policy: { type: 'string' },
+  'state-dir': { type: 'string' },
   'skills-dir': { type: 'string', multiple: true },
   'no-skills': { type: 'boolean', default: false },
-  'mcp-config': { type: 'string', default: 'config/mcp.json' },
+  'mcp-config': { type: 'string' },
   'no-mcp': { type: 'boolean', default: false },
+  'market-config': { type: 'string' },
+  'env-file': { type: 'string' },
   session: { type: 'string' },
   mode: { type: 'string', default: 'safe' },
   plan: { type: 'boolean', default: false },
@@ -54,7 +56,7 @@ function parseLimit(raw: string | undefined, key: string): number | undefined {
   return value;
 }
 
-export function parseOptions(args: string[]) {
+export function parseOptions(args: string[], cwd = process.cwd()) {
   const { values, positionals } = parseArgs({
     args,
     options: optionSchema,
@@ -79,13 +81,20 @@ export function parseOptions(args: string[]) {
     rest,
     mode: parseMode(values.mode),
     limits,
-    workspace: resolve(values.workspace),
-    policy: resolve(values.policy),
-    stateDir: resolve(values['state-dir']),
-    skillDirs: values['no-skills']
-      ? []
-      : (values['skills-dir'] ?? ['skills']).map((directory) => resolve(directory)),
-    mcpConfig: values['no-mcp'] ? undefined : resolve(values['mcp-config']),
+    ...resolvePaths(
+      {
+        workspace: values.workspace,
+        policy: values.policy,
+        stateDir: values['state-dir'],
+        skillDirs: values['skills-dir'],
+        noSkills: values['no-skills'],
+        mcpConfig: values['mcp-config'],
+        noMcp: values['no-mcp'],
+        marketConfig: values['market-config'],
+        envFile: values['env-file'],
+      },
+      cwd,
+    ),
     session: values.session,
     plan: values.plan,
     decision: values.decision ? parseDecision(values.decision) : undefined,

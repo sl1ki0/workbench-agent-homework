@@ -53,6 +53,7 @@ test('real MCP lists tools, returns data and records call identity and server er
       type: 'mcp_connected',
       data: {
         server: 'tracker',
+        transport: 'stdio',
         tools: ['mcp_tracker_list_tasks', 'mcp_tracker_get_task'],
         denied: [],
       },

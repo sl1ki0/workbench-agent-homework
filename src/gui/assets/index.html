@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Workbench · Workspace</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <button class="icon mobile-nav" id="show-sessions" aria-label="Сессии">☰</button>
+      <a class="brand" href="/"
+        ><span class="brand-mark" aria-hidden="true">W</span><span>Workbench</span></a
+      >
+      <div class="breadcrumb">
+        <span aria-hidden="true">/</span><span id="workspace-name">Workspace</span>
+      </div>
+      <div class="top-actions">
+        <span class="model-badge"
+          ><span class="model-dot" aria-hidden="true"></span
+          ><span id="model-name">Подключение</span></span
+        >
+        <button
+          class="icon"
+          id="show-inspector"
+          aria-label="Инспектор запуска"
+          title="Инспектор запуска"
+        >
+          ⌘
+        </button>
+        <button
+          class="icon"
+          data-panel="settings"
+          aria-label="Настройки модели"
+          title="Настройки модели"
+        >
+          ⚙
+        </button>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar" id="sidebar" aria-label="Рабочая область">
+        <button class="new-session" id="new-session">
+          <span aria-hidden="true">＋</span> Новая сессия
+        </button>
+        <div class="section-label">Сессии</div>
+        <nav class="sessions" id="sessions" aria-label="Сохранённые сессии"></nav>
+        <div class="section-label tools-label">Инструменты</div>
+        <div class="side-tools">
+          <button data-panel="files"><span aria-hidden="true">▰</span> Файлы</button>
+          <button data-panel="inventory"><span aria-hidden="true">◇</span> Skills и MCP</button>
+          <button data-panel="mcp"><span aria-hidden="true">⇄</span> Серверы MCP</button>
+          <button data-panel="evaluation"><span aria-hidden="true">▥</span> Оценки</button>
+          <button data-panel="market"><span aria-hidden="true">⊞</span> Marketplace</button>
+        </div>
+      </aside>
+      <main class="workspace" id="workspace">
+        <header class="workspace-header">
+          <div class="session-heading">
+            <span class="heading-icon" aria-hidden="true">▱</span
+            ><strong id="session-title">Новая сессия</strong>
+          </div>
+          <span class="run-badge quiet" id="run-badge">Ожидает ввода</span>
+        </header>
+        <section
+          class="transcript"
+          id="transcript"
+          aria-label="Диалог агента"
+          aria-live="polite"
+        ></section>
+        <div class="composer-area">
+          <div id="pending" hidden></div>
+          <form class="composer" id="composer">
+            <label class="sr-only" for="prompt">Задача для агента</label>
+            <textarea
+              id="prompt"
+              rows="2"
+              maxlength="50000"
+              placeholder="Опишите задачу…"
+              required
+            ></textarea>
+            <div class="composer-bar">
+              <label class="mode">
+                <span aria-hidden="true">◈</span>
+                <select id="mode" aria-label="Режим разрешений">
+                  <option value="plan">Plan</option>
+                  <option value="safe">Ask for edits</option>
+                  <option value="auto">YOLO</option>
+                </select>
+              </label>
+              <button type="button" class="subtle" id="clear-draft">Очистить</button>
+              <button type="submit" id="send" class="send" title="Отправить (Ctrl+Enter)">
+                Отправить <span aria-hidden="true">↑</span>
+              </button>
+            </div>
+          </form>
+          <div class="composer-footer">
+            <span id="usage-line">Вход — · Выход — · Кэш — · Запросы 0</span
+            ><span class="keyboard"><kbd>Ctrl</kbd> <kbd>↵</kbd> отправить</span>
+          </div>
+        </div>
+      </main>
+      <aside class="inspector" id="inspector" aria-label="Инспектор запуска">
+        <header class="inspector-heading">
+          <div>
+            <span class="eyebrow">ИНСПЕКТОР</span>
+            <h2>Ход запуска</h2>
+          </div>
+          <button class="icon close-inspector" id="close-inspector" aria-label="Скрыть инспектор">
+            ×
+          </button>
+        </header>
+        <div class="run-select">
+          <label for="run-select">Запуск</label
+          ><select id="run-select" aria-label="Запуск">
+            <option>Нет запусков</option>
+          </select>
+        </div>
+        <div class="flow" id="flow" aria-label="Этапы выполнения"></div>
+        <div class="section-label">Проверка результата</div>
+        <div class="inspect-actions">
+          <button data-panel="logs">
+            <span aria-hidden="true">≡</span> Журнал
+            <span class="chevron" aria-hidden="true">›</span>
+          </button>
+          <button data-panel="plan">
+            <span aria-hidden="true">⊡</span> План и задачи
+            <span class="chevron" aria-hidden="true">›</span>
+          </button>
+          <button data-panel="diff">
+            <span aria-hidden="true">±</span> Изменения
+            <span class="chevron" aria-hidden="true">›</span>
+          </button>
+          <button data-panel="stats">
+            <span aria-hidden="true">▥</span> Статистика
+            <span class="chevron" aria-hidden="true">›</span>
+          </button>
+          <button data-panel="doctor">
+            <span aria-hidden="true">⊕</span> Доктор
+            <span class="chevron" aria-hidden="true">›</span>
+          </button>
+        </div>
+      </aside>
+    </div>
+    <dialog id="panel" aria-labelledby="panel-title">
+      <div class="panel-header">
+        <h2 id="panel-title"></h2>
+        <button class="icon" id="close-panel" aria-label="Закрыть">×</button>
+      </div>
+      <div id="panel-content" class="panel-content"></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </body>
+</html>

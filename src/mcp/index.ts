@@ -1,3 +1,4 @@
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
   DEFAULT_INHERITED_ENV_VARS,
@@ -122,18 +123,21 @@ async function discover(client: Client, config: ServerConfig): Promise<Tool[]> {
 async function connect(config: ServerConfig): Promise<McpConnection> {
   const client = new Client({ name: 'workbench-agent', version: '0.2.0' });
   const close = () => client.close();
-  const transport = new StdioClientTransport({
-    command: config.command,
-    args: config.args,
-    cwd: config.cwd,
-    stderr: 'ignore',
-    maxBufferSize: 1024 * 1024,
-    env: {
-      ...Object.fromEntries(DEFAULT_INHERITED_ENV_VARS.map((key) => [key, ''])),
-      PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
-      LANG: 'C.UTF-8',
-    },
-  });
+  const transport =
+    config.transport === 'http'
+      ? new StreamableHTTPClientTransport(config.url, { requestInit: { redirect: 'error' } })
+      : new StdioClientTransport({
+          command: config.command,
+          args: config.args,
+          cwd: config.cwd,
+          stderr: 'ignore',
+          maxBufferSize: 1024 * 1024,
+          env: {
+            ...Object.fromEntries(DEFAULT_INHERITED_ENV_VARS.map((key) => [key, ''])),
+            PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
+            LANG: 'C.UTF-8',
+          },
+        });
   const definitions: ToolDefinition[] = [];
   const initialEvents: McpEvent[] = [];
 
@@ -158,7 +162,7 @@ async function connect(config: ServerConfig): Promise<McpConnection> {
     if (allowed.length) {
       initialEvents.push({
         type: 'mcp_connected',
-        data: { server: config.id, tools: allowed, denied },
+        data: { server: config.id, transport: config.transport, tools: allowed, denied },
       });
     } else {
       await close();
@@ -166,6 +170,7 @@ async function connect(config: ServerConfig): Promise<McpConnection> {
         type: 'mcp_error',
         data: {
           server: config.id,
+          transport: config.transport,
           error: 'No compatible tools passed the read-only policy',
           denied,
         },
@@ -174,13 +179,20 @@ async function connect(config: ServerConfig): Promise<McpConnection> {
     return { tools: definitions, initialEvents, dispose: close };
   } catch (error) {
     await close().catch(() => undefined);
-    initialEvents.push({ type: 'mcp_error', data: { server: config.id, error: messageOf(error) } });
+    initialEvents.push({
+      type: 'mcp_error',
+      data: { server: config.id, transport: config.transport, error: messageOf(error) },
+    });
     return { tools: [], initialEvents, dispose: close };
   }
 }
 
 export async function openMcp(configPath: string): Promise<McpConnection> {
-  const servers = await Promise.all(readConfig(configPath).map(connect));
+  return openMcpConfiguration(readConfig(configPath));
+}
+
+export async function openMcpConfiguration(config: ServerConfig[]): Promise<McpConnection> {
+  const servers = await Promise.all(config.map(connect));
   return {
     tools: servers.flatMap(({ tools }) => tools),
     initialEvents: servers.flatMap(({ initialEvents }) => initialEvents),

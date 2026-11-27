@@ -1,5 +1,18 @@
-import { randomUUID } from 'node:crypto';
-import type { AssistantMessage, Message, ModelReply, ToolDefinition } from '../types.js';
+import type { Message, Model, ModelReply, ToolDefinition } from '../types.js';
+import {
+  apiError,
+  assertFinish,
+  extractMessage,
+  extractUsage,
+  hasThinking,
+  ModelResponseError,
+  record,
+  type ModelObserver,
+} from './protocol.js';
+import { readCompletionStream } from './stream.js';
+import { VisibleText } from './visible-text.js';
+
+export { ModelResponseError } from './protocol.js';
 
 const OLLAMA_URL = 'http://127.0.0.1:11434/v1/';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/';
@@ -84,65 +97,20 @@ export function readModelConfig(env: NodeJS.ProcessEnv = process.env): ModelSett
   };
 }
 
-function record(value: unknown): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
-  return value as Record<string, unknown>;
-}
-
-function tokenCount(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-}
-
-function extractUsage(value: unknown): NonNullable<ModelReply['usage']> | undefined {
-  const source = record(value);
-  const input = tokenCount(source.prompt_tokens);
-  const output = tokenCount(source.completion_tokens);
-  const cached = tokenCount(record(source.prompt_tokens_details).cached_tokens);
-  const reasoning = tokenCount(record(source.completion_tokens_details).reasoning_tokens);
-  if ([input, output, cached, reasoning].every((count) => count === undefined)) return undefined;
-  return {
-    ...(input === undefined ? {} : { input }),
-    ...(output === undefined ? {} : { output }),
-    ...(cached === undefined ? {} : { cached }),
-    ...(reasoning === undefined ? {} : { reasoning }),
-  };
-}
-
-type ToolCall = NonNullable<AssistantMessage['tool_calls']>[number];
-
-function extractToolCall(value: unknown): ToolCall {
-  const call = record(value);
-  const fn = record(call.function);
-  if (call.type !== 'function' || typeof fn.name !== 'string' || !fn.name) {
-    throw new Error('Модель вернула некорректный tool call');
-  }
-  const args =
-    typeof fn.arguments === 'string' ? fn.arguments : JSON.stringify(fn.arguments ?? null);
-  return {
-    id: typeof call.id === 'string' && call.id ? call.id : `call_${randomUUID()}`,
-    type: 'function',
-    function: { name: fn.name, arguments: args },
-  };
-}
-
-function extractMessage(value: unknown): AssistantMessage {
-  const message = record(value);
-  if (message.role !== 'assistant') throw new Error('Модель не вернула сообщение assistant');
-  const calls = Array.isArray(message.tool_calls) ? message.tool_calls.map(extractToolCall) : [];
-  const content = typeof message.content === 'string' ? message.content : null;
-  if (!content?.trim() && calls.length === 0) throw new Error('Модель вернула пустой ответ');
-  return { role: 'assistant', content, ...(calls.length ? { tool_calls: calls } : {}) };
-}
-
-export class OpenAICompatibleModel {
+export class OpenAICompatibleModel implements Model {
   constructor(
     readonly settings: ModelSettings,
     private readonly apiKey: string,
     private readonly fetchRequest: typeof fetch = fetch,
   ) {}
 
-  async complete(messages: Message[], tools: ToolDefinition[]): Promise<ModelReply> {
+  async complete(
+    messages: Message[],
+    tools: ToolDefinition[],
+    observe?: ModelObserver,
+  ): Promise<ModelReply> {
     const settings = this.settings;
+    const implicitThinking = settings.provider === 'ollama' && /qwen3/iu.test(settings.model);
     const functions = tools.map(({ name, description, schema }) => ({
       type: 'function',
       function: { name, description, parameters: schema },
@@ -150,7 +118,8 @@ export class OpenAICompatibleModel {
     const params = {
       model: settings.model,
       messages,
-      stream: false,
+      stream: Boolean(observe),
+      ...(observe ? { stream_options: { include_usage: true } } : {}),
       temperature: settings.temperature,
       max_tokens: settings.maxTokens,
       ...(settings.seed === undefined ? {} : { seed: settings.seed }),
@@ -158,60 +127,72 @@ export class OpenAICompatibleModel {
       ...(functions.length ? { tools: functions, tool_choice: 'auto' } : {}),
     };
 
-    let status: number | undefined;
-    let result: Record<string, unknown>;
+    const timeoutMessage = `Таймаут запроса к модели (${settings.timeoutMs} мс)`;
     const signal = AbortSignal.timeout(settings.timeoutMs);
+    let response: Response;
     try {
-      const response = await this.fetchRequest(settings.endpoint, {
+      response = await this.fetchRequest(settings.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(observe ? { Accept: 'text/event-stream, application/json' } : {}),
           ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
         },
         redirect: 'error',
         signal,
         body: JSON.stringify(params),
       });
-      status = response.status;
-      result = record(await response.json());
     } catch {
-      if (signal.aborted) throw new Error(`Таймаут запроса к модели (${settings.timeoutMs} мс)`);
-      if (status !== undefined) throw new Error(`Модель вернула невалидный JSON (HTTP ${status})`);
+      if (signal.aborted) throw new Error(timeoutMessage);
       throw new Error(
         'Сбой соединения с моделью. Проверьте OPENAI_BASE_URL и доступность сервера.',
       );
     }
 
-    const usage = extractUsage(result.usage);
-    if (status >= 400 || result.error) {
-      const detail = record(result.error).message ?? result.error;
-      let safeDetail = typeof detail === 'string' ? detail : '';
-      if (this.apiKey) safeDetail = safeDetail.replaceAll(this.apiKey, '[redacted]');
-      throw new ModelResponseError(
-        `API модели вернул ошибку HTTP ${status}${safeDetail ? ` · ${safeDetail.slice(0, 500)}` : ''}`,
-        usage,
-      );
+    if (
+      observe &&
+      response.ok &&
+      response.headers.get('content-type')?.includes('text/event-stream')
+    ) {
+      if (!response.body) throw new ModelResponseError('Поток ответа модели пуст');
+      return readCompletionStream(response.body, observe, {
+        status: response.status,
+        apiKey: this.apiKey,
+        signal,
+        timeoutMessage,
+        implicitThinking,
+      });
     }
 
-    const choice = record(Array.isArray(result.choices) ? result.choices[0] : undefined);
-    if (choice.finish_reason === 'length') {
-      throw new ModelResponseError('Ответ модели прерван лимитом OPENAI_MAX_TOKENS', usage);
-    }
+    let result: Record<string, unknown>;
     try {
-      return { message: extractMessage(choice.message), ...(usage ? { usage } : {}) };
+      result = record(await response.json());
+    } catch {
+      if (signal.aborted) throw new Error(timeoutMessage);
+      throw new Error(`Модель вернула невалидный JSON (HTTP ${response.status})`);
+    }
+
+    const usage = extractUsage(result.usage);
+    if (!response.ok || result.error)
+      throw apiError(response.status, result.error, this.apiKey, usage);
+    const choice = record(Array.isArray(result.choices) ? result.choices[0] : undefined);
+    assertFinish(choice.finish_reason, usage);
+    try {
+      const reply = record(choice.message);
+      const raw = typeof reply.content === 'string' ? reply.content : '';
+      const firstTag = /<think>|<\/think>/iu.exec(raw)?.[0]?.toLowerCase();
+      const orphanClose = firstTag === '</think>';
+      const text = new VisibleText(observe, implicitThinking || orphanClose);
+      if (hasThinking(reply) && !orphanClose) text.structuredThinking();
+      text.add(raw);
+      const toolsProvided = Array.isArray(reply.tool_calls) && reply.tool_calls.length > 0;
+      const message = extractMessage({ ...reply, content: text.finish(!toolsProvided) });
+      for (const call of message.tool_calls ?? [])
+        observe?.({ type: 'tool', name: call.function.name });
+      return { message, ...(usage ? { usage } : {}) };
     } catch (error) {
       throw new ModelResponseError(error instanceof Error ? error.message : String(error), usage);
     }
-  }
-}
-
-export class ModelResponseError extends Error {
-  constructor(
-    message: string,
-    readonly usage?: ModelReply['usage'],
-  ) {
-    super(message);
-    this.name = 'ModelResponseError';
   }
 }
 

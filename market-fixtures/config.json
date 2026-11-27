@@ -1,0 +1,8 @@
+{
+  "registries": [
+    {
+      "id": "demo",
+      "index": "index.json"
+    }
+  ]
+}
