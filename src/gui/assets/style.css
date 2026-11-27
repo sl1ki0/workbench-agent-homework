@@ -638,6 +638,7 @@ dialog::backdrop {
 }
 .cards {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .card {
@@ -691,6 +692,16 @@ dialog::backdrop {
 .field select {
   color: var(--text);
 }
+.field:has(input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field input[type='checkbox'] {
+  order: -1;
+  margin: 0;
+  accent-color: var(--green);
+}
 pre {
   background: #101315;
   border: 1px solid var(--edge);
@@ -700,6 +711,7 @@ pre {
   padding: 9px;
   overflow: auto;
   max-height: 43vh;
+  scroll-margin-top: 65px;
 }
 details {
   border: 1px solid var(--edge);
