@@ -31,9 +31,10 @@ export function summarizeSession(sessionId: string, runs: Run[]): SessionStats {
     for (const event of run.events) {
       const { name, server, tool } = event.data;
       if (event.type === 'skill_loaded' && typeof name === 'string') add(skills, name);
-      if (event.type !== 'tool_call' || typeof name !== 'string') continue;
-      add(tools, name);
-      if (typeof server === 'string' && typeof tool === 'string') add(mcp, `${server}/${tool}`);
+      if (event.type === 'tool_call' && typeof name === 'string') add(tools, name);
+      if (event.type === 'tool_started' && typeof server === 'string' && typeof tool === 'string') {
+        add(mcp, `${server}/${tool}`);
+      }
     }
   }
   return {

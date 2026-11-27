@@ -6,6 +6,10 @@ const optionSchema = {
   workspace: { type: 'string', default: 'workspace' },
   policy: { type: 'string', default: 'config/policy.json' },
   'state-dir': { type: 'string', default: '.agent' },
+  'skills-dir': { type: 'string', multiple: true },
+  'no-skills': { type: 'boolean', default: false },
+  'mcp-config': { type: 'string', default: 'config/mcp.json' },
+  'no-mcp': { type: 'boolean', default: false },
   session: { type: 'string' },
   mode: { type: 'string', default: 'safe' },
   plan: { type: 'boolean', default: false },
@@ -78,6 +82,10 @@ export function parseOptions(args: string[]) {
     workspace: resolve(values.workspace),
     policy: resolve(values.policy),
     stateDir: resolve(values['state-dir']),
+    skillDirs: values['no-skills']
+      ? []
+      : (values['skills-dir'] ?? ['skills']).map((directory) => resolve(directory)),
+    mcpConfig: values['no-mcp'] ? undefined : resolve(values['mcp-config']),
     session: values.session,
     plan: values.plan,
     decision: values.decision ? parseDecision(values.decision) : undefined,

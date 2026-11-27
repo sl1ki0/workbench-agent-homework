@@ -39,7 +39,8 @@ export function validatePlan(plan: Plan, tools: ReadonlyMap<string, ToolDefiniti
   if (remaining.size !== plan.steps.length) throw new Error('Plan has duplicate task IDs');
   for (const step of plan.steps) {
     for (const name of step.tools) {
-      if (!tools.has(name)) throw new Error(`Unknown tool in task ${step.id}: ${name}`);
+      if (!tools.has(name) || tools.get(name)?.hidden)
+        throw new Error(`Unknown tool in task ${step.id}: ${name}`);
     }
   }
   const checked = new Set<string>();

@@ -1,0 +1,6 @@
+{
+  "commands": { "allow": [], "deny": ["rm -rf ."] },
+  "directories": { "allow": ["."], "deny": ["private", ".git"] },
+  "files": { "readOnly": ["progress.json", "note.txt"] },
+  "bash": { "timeoutMs": 15000, "maxOutputBytes": 65536 }
+}

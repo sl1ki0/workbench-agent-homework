@@ -1,0 +1,10 @@
+{
+  "lessons": [
+    { "id": "L1", "learner": "Анна", "status": "completed", "minutes": 30 },
+    { "id": "L2", "learner": "Борис", "status": "completed", "minutes": 25 },
+    { "id": "L3", "learner": "Анна", "status": "planned", "minutes": 90 },
+    { "id": "L4", "learner": "Вера", "status": "planned", "minutes": 45 },
+    { "id": "L5", "learner": "Борис", "status": "skipped", "minutes": 120 },
+    { "id": "L6", "learner": "Анна", "status": "completed", "minutes": 45 }
+  ]
+}

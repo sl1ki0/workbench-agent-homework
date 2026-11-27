@@ -217,9 +217,8 @@ export class ModelResponseError extends Error {
 
 export function makeModel(env: NodeJS.ProcessEnv = process.env): OpenAICompatibleModel {
   const settings = readModelConfig(env);
-  const apiKey =
-    env.OPENAI_API_KEY?.trim() ||
-    (settings.provider === 'openrouter' ? env.OPENROUTER_API_KEY?.trim() : undefined);
+  const openRouterKey = settings.provider === 'openrouter' ? env.OPENROUTER_API_KEY?.trim() : '';
+  const apiKey = openRouterKey || env.OPENAI_API_KEY?.trim();
   if (!apiKey && settings.provider === 'openrouter') {
     throw new Error('Для OpenRouter укажите OPENROUTER_API_KEY или OPENAI_API_KEY');
   }

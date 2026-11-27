@@ -38,7 +38,7 @@ function canonicalLocation(path: string): string {
   return resolve(canonicalLocation(parent), relative(parent, path));
 }
 
-function ensureOutside(root: string, path: string, name: string) {
+export function ensureOutside(root: string, path: string, name: string) {
   const fromRoot = relative(realpathSync(root), canonicalLocation(path));
   if (
     !fromRoot ||

@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "tracker": {
+      "command": "node",
+      "args": ["../dist/src/mcp/tracker-server.js"],
+      "allowReadOnly": ["list_tasks", "get_task"],
+      "timeoutMs": 3000
+    }
+  }
+}

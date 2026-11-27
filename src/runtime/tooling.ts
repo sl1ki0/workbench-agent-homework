@@ -84,26 +84,37 @@ export function limitResult(
   return { result: limited, content, bytes: Buffer.byteLength(content) };
 }
 
-const environmentSecrets = Object.entries(process.env)
-  .filter(
-    ([name, value]) =>
-      /(?:api[_-]?key|(?:^|_)token|secret|password)/i.test(name) && (value?.length ?? 0) >= 8,
-  )
-  .map(([, value]) => value as string)
-  .sort((a, b) => b.length - a.length);
+const secretField = /^(?:api[_-]?key|authorization|password|secret|token)$/i;
 
 export function redact(value: unknown): unknown {
-  if (typeof value === 'string') {
-    let safe = value.replace(
-      /\b(?:sk-(?:or-v1-)?[a-zA-Z0-9_-]{16,}|gh[pousr]_[a-zA-Z0-9]{20,})\b/g,
-      '[redacted]',
-    );
-    for (const secret of environmentSecrets) safe = safe.replaceAll(secret, '[redacted]');
-    return safe;
+  const environmentSecrets = Object.entries(process.env)
+    .filter(
+      ([name, value]) =>
+        /(?:api[_-]?key|(?:^|_)token|secret|password)/i.test(name) && (value?.length ?? 0) >= 8,
+    )
+    .map(([, value]) => value as string)
+    .sort((a, b) => b.length - a.length);
+
+  function sanitize(item: unknown): unknown {
+    if (typeof item === 'string') {
+      let safe = item.replace(
+        /\b(?:sk-(?:or-v1-)?[a-zA-Z0-9_-]{16,}|gh[pousr]_[a-zA-Z0-9]{20,})\b/g,
+        '[redacted]',
+      );
+      for (const secret of environmentSecrets) safe = safe.replaceAll(secret, '[redacted]');
+      return safe;
+    }
+    if (Array.isArray(item)) return item.map(sanitize);
+    if (item && typeof item === 'object') {
+      return Object.fromEntries(
+        Object.entries(item).map(([key, content]) => [
+          key,
+          secretField.test(key) && typeof content === 'string' ? '[redacted]' : sanitize(content),
+        ]),
+      );
+    }
+    return item;
   }
-  if (Array.isArray(value)) return value.map(redact);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redact(item)]));
-  }
-  return value;
+
+  return sanitize(value);
 }

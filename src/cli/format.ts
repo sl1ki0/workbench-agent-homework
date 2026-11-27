@@ -67,6 +67,10 @@ const helpLines = [
   '  --workspace PATH             Корень проекта (workspace)',
   '  --policy PATH                Настройки доступа (config/policy.json)',
   '  --state-dir PATH             История и журналы (.agent)',
+  '  --skills-dir PATH            Каталог скиллов (skills), флаг можно повторять',
+  '  --no-skills                  Запуск без скиллов',
+  '  --mcp-config PATH            Конфигурация MCP (config/mcp.json)',
+  '  --no-mcp                     Запуск без MCP',
   '  --model-calls N --tool-calls N --side-effects N --result-bytes N',
   '  --json                       Машиночитаемый вывод команд',
   '  --no-color                   Отключить цвета',
@@ -171,15 +175,32 @@ export class Terminal {
         break;
       case 'skill_discovered':
       case 'skills_discovered':
-        console.log(
-          `  ${this.accent('✦')} Каталог скиллов · ${shorten(data.names ?? data.skills ?? data.name)}`,
-        );
+        {
+          const names = Array.isArray(data.skills)
+            ? data.skills.map((skill) => record(skill).name)
+            : data.names;
+          console.log(
+            `  ${this.accent('✦')} Каталог скиллов · ${shorten(data.count)} · ${shorten(names ?? data.name)}`,
+          );
+        }
         break;
       case 'skill_loaded':
         console.log(`  ${this.accent('✦')} Скилл загружен · ${shorten(data.name)}`);
         break;
       case 'skill_error':
-        console.log(`  ${tone(this.color, '33', '!')} Скилл · ${shorten(data.error)}`);
+        console.log(
+          `  ${tone(this.color, '33', '!')} Скилл · ${shorten(data.path)} · ${shorten(data.error)}`,
+        );
+        break;
+      case 'mcp_connected':
+        console.log(
+          `  ${this.accent('↔')} MCP · ${shorten(data.server)} · инструменты ${shorten(data.tools)}`,
+        );
+        break;
+      case 'mcp_error':
+        console.log(
+          `  ${tone(this.color, '33', '!')} MCP · ${shorten(data.server)} · ${shorten(data.error)}`,
+        );
         break;
     }
   }

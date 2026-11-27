@@ -49,6 +49,7 @@ export interface ToolDefinition {
   description: string;
   schema: Record<string, unknown>;
   sideEffect: boolean;
+  hidden?: boolean;
   safeRetry: boolean;
   authorize?(args: Record<string, unknown>): void;
   execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>;

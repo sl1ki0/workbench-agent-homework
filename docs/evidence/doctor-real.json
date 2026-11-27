@@ -1,0 +1,35 @@
+{
+  "session_id": "947bf6f5-ea1b-48d5-87fb-1825b9e0e17b",
+  "agent": {
+    "requests": 3,
+    "usage": {
+      "input": { "total": 1601, "known": 2, "requests": 3, "status": "partial" },
+      "output": { "total": 717, "known": 2, "requests": 3, "status": "partial" },
+      "cached": { "total": 551, "known": 2, "requests": 3, "status": "partial" },
+      "reasoning": { "total": null, "known": 0, "requests": 3, "status": "unknown" }
+    },
+    "frequency": { "tools": { "list_files": 1, "read_file": 1 }, "skills": {}, "mcp": {} }
+  },
+  "doctor": { "mode": "rules", "requests": 0, "input_tokens": 0, "output_tokens": 0 },
+  "runs": [
+    {
+      "run_id": "48f4fc90-e0f6-4e08-b0a7-1cadff9e4ce0",
+      "status": "unknown",
+      "events": 14,
+      "requests": 3,
+      "usage": {
+        "input": { "total": 1601, "known": 2, "requests": 3, "status": "partial" },
+        "output": { "total": 717, "known": 2, "requests": 3, "status": "partial" },
+        "cached": { "total": 551, "known": 2, "requests": 3, "status": "partial" },
+        "reasoning": { "total": null, "known": 0, "requests": 3, "status": "unknown" }
+      },
+      "frequency": { "tools": { "list_files": 1, "read_file": 1 }, "skills": {}, "mcp": {} },
+      "findings": [],
+      "limitations": [
+        "В журнале отсутствует завершение запуска. Могут быть доступны только промежуточные события.",
+        "API usage входных или выходных токенов доступен не для всех запросов."
+      ]
+    }
+  ],
+  "limitations": []
+}

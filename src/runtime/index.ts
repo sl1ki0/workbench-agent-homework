@@ -438,7 +438,7 @@ export class Agent {
   }
 
   private allowedNewSideEffect(run: Run, call: ToolCall, tool?: ToolDefinition): boolean {
-    if (run.phase === 'planning' || !tool?.sideEffect) return false;
+    if (run.phase === 'planning' || !tool?.sideEffect || tool.hidden) return false;
     try {
       const validator = this.validators.get(tool.name);
       if (!validator) return false;
@@ -496,6 +496,7 @@ export class Agent {
       if (!validator) throw new Error('Tool schema is missing');
       args = checkArguments(call, validator);
       tool.authorize?.(args);
+      if (tool.hidden) throw new Error('Tool denied by runtime policy');
     } catch (error) {
       this.denied(run, call, attempt, messageOf(error), args);
       return;
@@ -734,7 +735,7 @@ export class Agent {
   }
 
   private visibleTools(run: Run): ToolDefinition[] {
-    const tools = [...this.tools.values()];
+    const tools = [...this.tools.values()].filter((tool) => !tool.hidden);
     if (run.phase === 'planning')
       return [...tools.filter((tool) => !tool.sideEffect), this.submitPlan];
     if (activeTask(run)) return [...tools, this.completeTask];
