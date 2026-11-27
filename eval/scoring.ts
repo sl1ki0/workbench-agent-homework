@@ -36,10 +36,12 @@ export function checkRouting(
   };
 }
 
-function successful(record: CallRecord, expected: CallExpectation): boolean {
+function matches(record: CallRecord, expected: CallExpectation): boolean {
   return (
     record.call.function.name === expected.name &&
-    record.result.ok &&
+    (expected.errorIncludes
+      ? !record.result.ok && (record.result.error ?? '').includes(expected.errorIncludes)
+      : record.result.ok) &&
     !record.result.truncated &&
     !record.replayed &&
     Object.entries(expected.args ?? {}).every(([key, value]) => record.args?.[key] === value)
@@ -68,10 +70,10 @@ export function checkTools(
   let previous = -1;
   let missing = false;
   for (const expected of scenario.requiredCalls) {
-    const index = records.findIndex((record, i) => i > previous && successful(record, expected));
+    const index = records.findIndex((record, i) => i > previous && matches(record, expected));
     if (index < 0) {
       details.push(
-        `Не найден обязательный успешный вызов в нужном порядке: ${expected.name} ${JSON.stringify(expected.args ?? {})}.`,
+        `Не найден обязательный ${expected.errorIncludes ? 'вызов с ожидаемой ошибкой' : 'успешный вызов'} в нужном порядке: ${expected.name} ${JSON.stringify(expected.args ?? {})}.`,
       );
       missing = true;
     } else {

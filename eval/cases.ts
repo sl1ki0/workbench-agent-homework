@@ -1,17 +1,20 @@
+import { checkMcpFailure } from './checks/mcp-failure.js';
 import { checkCopy } from './checks/no-skill.js';
-import { checkClosedTasks, checkOpenTasks } from './checks/open-tasks.js';
+import { checkOpenTasks } from './checks/open-tasks.js';
 import { checkAlternateProgress, checkProgress } from './checks/progress.js';
 import type { Check } from './checks/markdown.js';
 
 export interface CallExpectation {
   name: string;
   args?: Record<string, string>;
+  errorIncludes?: string;
 }
 
 export interface EvaluationCase {
   id: string;
   prompt: string;
   source?: string;
+  mcpFixture?: string;
   artifact: string;
   expectedSkill: string | null;
   allowedTools: string[];
@@ -71,28 +74,23 @@ export const scenarios: EvaluationCase[] = [
 export const extendedScenarios: EvaluationCase[] = [
   ...scenarios,
   {
-    id: 'closed-tasks',
+    id: 'mcp-failure',
     prompt:
-      'Сохрани закрытые задачи учебного трекера в closed-tasks.md. Нужна Markdown-таблица со столбцами ID и Название, отсортированная по ID.',
-    artifact: 'closed-tasks.md',
-    expectedSkill: null,
-    allowedTools: [
-      'list_files',
-      'read_file',
-      'write_file',
-      'mcp_tracker_list_tasks',
-      'mcp_tracker_get_task',
-    ],
+      'Запроси открытые задачи учебного трекера и сохрани сводку в tracker-status.md. Если источник недоступен, кратко опиши ограничение в этом файле и не придумывай задачи или их количество.',
+    artifact: 'tracker-status.md',
+    mcpFixture: 'mcp-fault.json',
+    expectedSkill: 'open-task-report',
+    allowedTools: ['list_files', 'read_file', 'write_file', 'mcp_tracker_list_tasks'],
     requiredCalls: [
-      { name: 'mcp_tracker_list_tasks' },
-      { name: 'write_file', args: { path: 'closed-tasks.md' } },
+      { name: 'mcp_tracker_list_tasks', errorIncludes: 'TRACKER_UNAVAILABLE' },
+      { name: 'write_file', args: { path: 'tracker-status.md' } },
     ],
-    check: checkClosedTasks,
+    check: checkMcpFailure,
   },
   {
     id: 'progress-variant',
     prompt:
-      'Собери progress-summary.md по progress.json. Напиши Markdown-таблицу Ученик, Завершено, Минуты. Включи всех учеников, считай только завершённые занятия, последней строкой дай Итого.',
+      'Собери progress-summary.md по progress.json. Напиши Markdown-таблицу Ученик, Завершено, Минуты. Включи всех учеников. Считай только завершённые занятия, а в продолжительность включай только известные минуты. Не подставляй пропущенные значения. Под таблицей отметь занятие, у которого отсутствует продолжительность. Последняя строка таблицы — Итого.',
     source: 'progress.json',
     artifact: 'progress-summary.md',
     expectedSkill: 'progress-summary',

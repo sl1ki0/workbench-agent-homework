@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "tracker": {
+      "command": "node",
+      "args": ["../../dist/eval/mcp-fault-server.js"],
+      "allowReadOnly": ["list_tasks"],
+      "timeoutMs": 3000
+    }
+  }
+}

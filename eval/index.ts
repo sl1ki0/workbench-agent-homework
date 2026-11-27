@@ -15,6 +15,7 @@ async function main(): Promise<void> {
         '  run [каталог]                           18 попыток с настроенной LLM',
         '  extended [каталог]                      30 попыток по расширенному набору',
         '  smoke <сценарий> <A|B> [каталог]         одна пробная попытка с LLM',
+        '  resume <каталог>                        продолжить незавершённую серию',
         '  report [каталог]                        сводка по сохранённым данным',
         `Сценарии: ${extendedScenarios.map(({ id }) => id).join(', ')}`,
       ].join('\n'),
@@ -32,13 +33,15 @@ async function main(): Promise<void> {
     writeReport(output);
     return;
   }
-  if (second || !['run', 'extended', 'report'].includes(command)) {
-    throw new Error('Ожидалось run, extended или report [каталог].');
+  if (second || !['run', 'extended', 'resume', 'report'].includes(command)) {
+    throw new Error('Ожидалось run, extended, resume или report [каталог].');
   }
+  if (command === 'resume' && !first) throw new Error('Используйте resume <каталог>');
   const output = resolve(first ?? 'eval/evidence');
   if (command !== 'report') {
     await executeTrials(output, undefined, undefined, {
       suite: command === 'extended' ? extendedScenarios : undefined,
+      resume: command === 'resume',
     });
   }
   writeReport(output);

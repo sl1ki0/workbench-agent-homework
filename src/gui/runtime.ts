@@ -2,10 +2,13 @@ import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { createTwoFilesPatch } from 'diff';
 import { inventory } from '../cli/inventory.js';
+import { projectMarketTools } from '../cli/market-commands.js';
 import { projectMcp } from '../cli/mcp-commands.js';
 import { changeSkillSelection, projectSkills } from '../cli/project-skills.js';
 import type { CliOptions } from '../cli/options.js';
 import { doctorSession } from '../doctor/index.js';
+import { atomicJson, isMissing, withLock } from '../market/files.js';
+import { readRegular } from '../market/registry.js';
 import type { McpConnection } from '../mcp/index.js';
 import { makeModel, readModelConfig } from '../model/index.js';
 import { Agent } from '../runtime/index.js';
@@ -36,6 +39,11 @@ const fileLimit = 96_000;
 const effortLevels = ['default', 'off', 'low', 'medium', 'high'] as const;
 type EffortLevel = (typeof effortLevels)[number];
 
+interface GuiPreferences {
+  model?: string;
+  effort: EffortLevel;
+}
+
 export class InputError extends Error {
   constructor(
     message: string,
@@ -55,6 +63,32 @@ export function objectValue(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new InputError('Ожидался JSON-объект');
   return value as Record<string, unknown>;
+}
+
+function updatePreferences(input: unknown, previous: GuiPreferences): GuiPreferences {
+  const { model, effort } = objectValue(input);
+  if (
+    model !== undefined &&
+    (typeof model !== 'string' || model.length > 160 || /[\u0000-\u001F]/u.test(model))
+  )
+    throw new InputError('Некорректное имя модели');
+  if (effort !== undefined && !effortLevels.includes(effort as EffortLevel))
+    throw new InputError('Некорректный режим thinking');
+  return {
+    model: typeof model === 'string' ? model.trim() || undefined : previous.model,
+    effort: effort === undefined ? previous.effort : (effort as EffortLevel),
+  };
+}
+
+function readPreferences(path: string): GuiPreferences {
+  const defaults = { effort: 'default' } as const;
+  try {
+    const saved: unknown = JSON.parse(readRegular(path, 4096).toString('utf8'));
+    return updatePreferences(saved, defaults);
+  } catch (error) {
+    if (isMissing(error)) return defaults;
+    throw new InputError('Не удалось загрузить настройки модели из каталога состояния', 500);
+  }
 }
 
 function canonical(path: string): string {
@@ -130,15 +164,16 @@ function patch(change: FileChange) {
 }
 
 export class GuiRuntime {
-  private modelName?: string;
-  private effort: EffortLevel = 'default';
+  private readonly preferencesFile: string;
   private busy = false;
   private connection?: McpConnection;
   private constructor(
     readonly options: CliOptions,
     readonly extensions: GuiExtensions,
     readonly workspace: Workspace,
-  ) {}
+  ) {
+    this.preferencesFile = join(options.stateDir, 'gui-settings.json');
+  }
 
   static async create(options: CliOptions, extensions: GuiExtensions): Promise<GuiRuntime> {
     const root = realpathSync(options.workspace);
@@ -208,19 +243,19 @@ export class GuiRuntime {
     return this.inventory();
   }
 
-  private environment(): NodeJS.ProcessEnv {
+  private environment(preferences: GuiPreferences): NodeJS.ProcessEnv {
     return {
       ...process.env,
-      ...(this.modelName ? { OPENAI_MODEL: this.modelName } : {}),
-      ...(this.effort !== 'default'
-        ? { OPENAI_REASONING_EFFORT: this.effort === 'off' ? 'none' : this.effort }
+      ...(preferences.model ? { OPENAI_MODEL: preferences.model } : {}),
+      ...(preferences.effort !== 'default'
+        ? { OPENAI_REASONING_EFFORT: preferences.effort === 'off' ? 'none' : preferences.effort }
         : {}),
     };
   }
 
-  private agent(onActivity?: (activity: Activity) => void): Agent {
-    const env = this.environment();
-    const skills = onActivity ? projectSkills(this.options) : undefined;
+  private agent(onActivity?: (activity: Activity) => void, run?: Run): Agent {
+    const env = onActivity ? this.environment(readPreferences(this.preferencesFile)) : process.env;
+    const skills = onActivity ? projectSkills(this.options, run) : undefined;
     let client: Model | undefined;
     const model: Model = {
       complete: (messages, tools) => {
@@ -239,6 +274,12 @@ export class GuiRuntime {
       model,
       tools: [
         ...(skills?.tools ?? []),
+        ...(skills
+          ? projectMarketTools(
+              this.options,
+              skills.catalog.map(({ name }) => name),
+            )
+          : []),
         ...(this.connection?.tools ?? []),
         ...(this.extensions.agentOptions?.tools ?? []),
       ],
@@ -251,9 +292,9 @@ export class GuiRuntime {
     });
   }
 
-  settings() {
+  settings(preferences = readPreferences(this.preferencesFile)) {
     const { provider, model, reasoningEffort, temperature, maxTokens } = readModelConfig(
-      this.environment(),
+      this.environment(preferences),
     );
     return {
       provider,
@@ -261,29 +302,18 @@ export class GuiRuntime {
       reasoningEffort,
       temperature,
       maxTokens,
-      effort: this.effort,
+      effort: preferences.effort,
       defaultModel: process.env.OPENAI_MODEL?.trim() || (provider === 'ollama' ? 'qwen3:4b' : ''),
     };
   }
 
   settingsUpdate(input: unknown) {
-    const { model, effort } = objectValue(input);
-    if (
-      model !== undefined &&
-      (typeof model !== 'string' || model.length > 160 || /[\u0000-\u001F]/u.test(model))
-    )
-      throw new InputError('Некорректное имя модели');
-    if (effort !== undefined && !effortLevels.includes(effort as EffortLevel))
-      throw new InputError('Некорректный режим thinking');
-    const previous = [this.modelName, this.effort] as const;
-    if (typeof model === 'string') this.modelName = model.trim() || undefined;
-    if (effort !== undefined) this.effort = effort as EffortLevel;
-    try {
-      return this.settings();
-    } catch (error) {
-      [this.modelName, this.effort] = previous;
-      throw error;
-    }
+    return withLock(`${this.preferencesFile}.lock`, () => {
+      const preferences = updatePreferences(input, readPreferences(this.preferencesFile));
+      const validated = this.settings(preferences);
+      atomicJson(this.preferencesFile, preferences);
+      return validated;
+    });
   }
 
   bootstrap() {
@@ -416,8 +446,9 @@ export class GuiRuntime {
         : undefined;
     return this.exclusively(async () => {
       await this.refreshConnections();
+      const saved = this.agent().get(id);
       return publicRun(
-        await this.agent(onActivity).resume(id, action as Decision | undefined, recovery),
+        await this.agent(onActivity, saved).resume(id, action as Decision | undefined, recovery),
       );
     });
   }

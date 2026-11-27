@@ -25,10 +25,23 @@ export function checkProgress(content: Buffer): Check {
 }
 
 export function checkAlternateProgress(content: Buffer): Check {
-  return checkProgressRows(content, [
+  const rows = checkProgressRows(content, [
     ['Анна', '1', '26'],
-    ['Борис', '2', '35'],
+    ['Борис', '2', '14'],
     ['Вера', '0', '0'],
-    ['Итого', '3', '61'],
+    ['Итого', '3', '40'],
   ]);
+  const mentionsMissing = content
+    .toString('utf8')
+    .split(/\r?\n/u)
+    .some((line) => {
+      const text = line.toLowerCase();
+      return (
+        /\bl5\b/u.test(text) && /нет|пропущ|неизвест|отсутств|не указан|missing|unknown/u.test(text)
+      );
+    });
+  return {
+    pass: rows.pass && mentionsMissing,
+    details: [...rows.details, mentionsMissing ? 'Пропуск L5 отмечен.' : 'Пропуск L5 не отмечен.'],
+  };
 }

@@ -244,6 +244,7 @@ button:disabled {
 }
 .workspace {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 61px minmax(0, 1fr) auto;
   min-width: 0;
 }

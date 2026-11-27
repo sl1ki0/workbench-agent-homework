@@ -11,6 +11,7 @@ import { ChatScreen, level, type PermissionView } from './screen.js';
 
 interface ChatHost {
   agent: Agent;
+  agentForResume?(id: string): Agent;
   options: CliOptions;
   terminal: Terminal;
   models: ModelControl;
@@ -236,7 +237,7 @@ export async function chat(host: ChatHost): Promise<void> {
               );
             }
             screen?.resetUsage(savedRun);
-            show(await resumeRun(host.agent, id));
+            show(await resumeRun(host.agentForResume?.(id) ?? host.agent, id));
             break;
           }
           case 'doctor':
@@ -275,7 +276,7 @@ export async function chat(host: ChatHost): Promise<void> {
             screen?.resetUsage(current);
             show(
               await resumeRun(
-                host.agent,
+                host.agentForResume?.(current.id) ?? host.agent,
                 current.id,
                 parseDecision(command),
                 action ? parseAttribution(action) : undefined,

@@ -1025,43 +1025,127 @@ async function marketView() {
     );
   }
   view.append(controls, results);
+  if (actions.includes('gates')) {
+    const history = el('div', 'cards');
+    view.append(
+      button('Сравнения версий', async () => {
+        try {
+          const entries = await api('/api/market/gates', {});
+          history.replaceChildren();
+          for (const entry of entries) {
+            const labels = {
+              accepted: 'Принято',
+              rejected: 'Отклонено',
+              pending: 'Решение ожидается',
+            };
+            const title = `${entry.candidate?.name || 'Скилл'} · ${entry.baseline?.version || '?'} → ${entry.candidate?.version || '?'}`;
+            const node = card(
+              title,
+              `${labels[entry.status] || entry.status} · ${entry.trials ?? '?'} попыток · ${entry.time}`,
+            );
+            const report = el('div');
+            node.append(
+              button('Показать отчёт', async () => {
+                try {
+                  const details = await api('/api/market/gate-report', { id: entry.id });
+                  report.replaceChildren(el('pre', '', details.report || details.reason));
+                } catch (error) {
+                  notice(error, true);
+                }
+              }),
+              report,
+            );
+            history.append(node);
+          }
+          if (!entries.length) history.append(el('p', '', 'Сравнений версий пока нет.'));
+        } catch (error) {
+          notice(error, true);
+        }
+      }),
+      history,
+    );
+  }
+  if (actions.includes('events')) {
+    const journal = el('div');
+    view.append(
+      button('Журнал рынка', async () => {
+        try {
+          const events = await api('/api/market/events', {});
+          journal.replaceChildren();
+          for (const event of events) {
+            const before = event.old
+              ? `${event.old.name}@${event.old.version} #${event.old.digest.slice(0, 8)}`
+              : '';
+            const after = event.next
+              ? `${event.next.name}@${event.next.version} #${event.next.digest.slice(0, 8)}`
+              : '';
+            const summary = [
+              event.time,
+              event.registry,
+              event.result,
+              before && after ? `${before} → ${after}` : after || before,
+              event.error,
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            journal.append(card(event.type, summary));
+          }
+          if (!events.length) journal.append(el('p', '', 'Проверок пока нет.'));
+        } catch (error) {
+          notice(error, true);
+        }
+      }),
+      journal,
+    );
+  }
   if (actions.includes('auto')) {
     const auto = await api('/api/market/auto', { action: 'status' });
-    const schedule = card(
-      'Автопроверка',
-      auto.enabled ? `Каждые ${auto.intervalMinutes} мин.` : 'Выключена',
-    );
-    const interval = textInput('60');
-    interval.type = 'number';
-    interval.value = String(auto.intervalMinutes ?? 60);
-    interval.min = '1';
-    interval.max = '10080';
-    schedule.append(formField('Интервал, минуты', interval));
-    schedule.append(
-      button(auto.enabled ? 'Выключить' : 'Включить', () =>
-        invokeOperation(
-          'market',
-          'auto',
-          {
-            action: auto.enabled ? 'off' : 'on',
-            intervalMinutes: Number(interval.value),
-          },
-          auto.enabled ? 'Выключить автопроверку' : 'Включить автопроверку с eval-gate',
+    for (const source of auto.sources ?? []) {
+      const schedule = card(`Настройки источника ${source.registry}`);
+      const poll = document.createElement('input');
+      poll.type = 'checkbox';
+      poll.checked = Boolean(source.pollingEnabled);
+      const update = document.createElement('input');
+      update.type = 'checkbox';
+      update.checked = Boolean(source.autoEnabled);
+      const interval = textInput('60');
+      interval.type = 'number';
+      interval.value = String(source.intervalMinutes);
+      interval.min = '1';
+      interval.max = '10080';
+      schedule.append(
+        formField('Проверять новинки автоматически', poll),
+        formField('Автоматически обновлять после eval', update),
+        formField('Интервал, минуты', interval),
+        button('Сохранить настройки', () =>
+          invokeOperation(
+            'market',
+            'auto',
+            {
+              action: 'configure',
+              registry: source.registry,
+              pollingEnabled: poll.checked,
+              autoEnabled: update.checked,
+              intervalMinutes: Number(interval.value),
+            },
+            `Настройки ${source.registry}`,
+          ),
         ),
-      ),
-    );
-    schedule.append(
-      button('Проверить сейчас', () =>
-        invokeOperation(
-          'market',
-          'auto',
-          { action: 'run' },
-          'Проверить обновления через eval-gate',
+        button('Проверить сейчас', () =>
+          invokeOperation(
+            'market',
+            'auto',
+            {
+              action: 'run',
+              registry: source.registry,
+            },
+            `Проверить ${source.registry}`,
+          ),
         ),
-      ),
-    );
-    if (auto.last) schedule.append(detail('Последняя проверка', auto.last));
-    view.append(schedule);
+      );
+      if (source.last) schedule.append(detail('Последняя проверка', source.last));
+      view.append(schedule);
+    }
   }
   return view;
 }
@@ -1219,6 +1303,35 @@ prompt.addEventListener('keydown', (event) => {
   }
 });
 
+function watchMarketplace() {
+  if (!state.operations.market?.includes('events')) return;
+  const openedAt = Date.now() - 15_000;
+  const seen = new Set();
+  async function poll() {
+    try {
+      const events = await api('/api/market/events', {});
+      const changes = [];
+      for (const event of events.reverse()) {
+        if (seen.has(event.id)) continue;
+        seen.add(event.id);
+        if (!event.next || Date.parse(event.time) < openedAt) continue;
+        if (event.type === 'market_skill_discovered')
+          changes.push(`Новый скилл ${event.next.name}`);
+        if (event.type === 'market_version_discovered')
+          changes.push(`Новая версия ${event.next.name}@${event.next.version}`);
+        if (event.type === 'market_update' && event.result === 'activated')
+          changes.push(`Обновлён ${event.next.name}@${event.next.version}`);
+      }
+      if (changes.length) notice(changes.join(' · '));
+    } catch {
+      // Ignore transient errors reading the local journal.
+    } finally {
+      setTimeout(poll, 5000);
+    }
+  }
+  void poll();
+}
+
 async function start() {
   try {
     const data = await api('/api/bootstrap');
@@ -1226,6 +1339,7 @@ async function start() {
     byId('workspace-name').textContent = data.workspace;
     byId('mode').value = state.mode;
     showModel();
+    watchMarketplace();
     await selectSession(data.sessionId || data.sessions[0]?.id || null);
   } catch (error) {
     notice(error, true);

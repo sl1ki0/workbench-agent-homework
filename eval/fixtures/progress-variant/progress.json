@@ -4,6 +4,6 @@
     { "id": "L2", "learner": "Анна", "status": "completed", "minutes": 26 },
     { "id": "L4", "learner": "Вера", "status": "planned", "minutes": 55 },
     { "id": "L1", "learner": "Борис", "status": "completed", "minutes": 14 },
-    { "id": "L5", "learner": "Борис", "status": "completed", "minutes": 21 }
+    { "id": "L5", "learner": "Борис", "status": "completed", "minutes": null }
   ]
 }

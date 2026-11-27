@@ -66,7 +66,7 @@ async function setup(t: TestContext, extensions: GuiExtensions = {}) {
       body: JSON.stringify(data),
     });
   }
-  return { ...app, local, boot, post, workspace, state };
+  return { ...app, local, boot, post, workspace, state, options };
 }
 
 test('browser service enforces origin and token, protects config and exposes safe settings and trusted assets', async (t) => {
@@ -107,6 +107,15 @@ test('browser service enforces origin and token, protects config and exposes saf
   const settings = await app.post('/api/settings', { model: 'qwen3:4b', effort: 'low' });
   assert.equal(settings.status, 200);
   assert.equal((await settings.json()).reasoningEffort, 'low');
+  const reopened = await openGui(app.options);
+  t.after(() => reopened.close());
+  const saved = await (await fetch(new URL('/api/bootstrap', reopened.url))).json();
+  assert.equal(saved.settings.model, 'qwen3:4b');
+  assert.equal(saved.settings.reasoningEffort, 'low');
+  assert.doesNotMatch(
+    readFileSync(join(app.state, 'gui-settings.json'), 'utf8'),
+    /very-private-key/u,
+  );
   assert.equal((await fetch(app.local('/api/file?path=../fixture.env'))).status, 400);
   assert.equal((await fetch(app.local('/api/file?path=.agent/internal.txt'))).status, 400);
   assert.deepEqual((await (await fetch(app.local('/api/files'))).json()).files, ['readme.txt']);

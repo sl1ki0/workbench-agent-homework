@@ -11,7 +11,7 @@ import { projectCatalogs } from './catalog-sources.js';
 import { chat } from './chat.js';
 import { runEvaluationCommand } from './eval-operations.js';
 import { inventory } from './inventory.js';
-import { runMarketCommand, startMarketWatcher } from './market-commands.js';
+import { projectMarketTools, runMarketCommand, startMarketWatcher } from './market-commands.js';
 import { projectMcp, runMcpCommand } from './mcp-commands.js';
 import { ModelControl } from './model-control.js';
 import { changeSkillSelection, projectSkills } from './project-skills.js';
@@ -172,28 +172,41 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
     let screen: ChatScreen | undefined;
     let agent: Agent;
     let skills: ReturnType<typeof projectSkills>;
-    function rebuild() {
-      skills = needsModel ? projectSkills(options) : undefined;
+    function assemble(activeSkills: ReturnType<typeof projectSkills>, refreshInventory: boolean) {
       const extensionEvents = [
         ...(extension?.initialEvents ?? []),
         ...(mcp?.initialEvents ?? []),
-        ...(skills?.initialEvents ?? []),
+        ...(activeSkills?.initialEvents ?? []),
       ];
-      Object.assign(
-        resources,
-        inventory(
-          extensionEvents,
-          options.skillDirs.length + options.projectSkillDirs.length > 0,
-          Boolean(options.mcpConfig),
-          skills?.catalog,
-        ),
-      );
-      agent = new Agent({
+      if (refreshInventory) {
+        Object.assign(
+          resources,
+          inventory(
+            extensionEvents,
+            options.skillDirs.length + options.projectSkillDirs.length > 0,
+            Boolean(options.mcpConfig),
+            activeSkills?.catalog,
+          ),
+        );
+      }
+      return new Agent({
         workspace,
         stateDir: options.stateDir,
         model,
-        tools: [...(extension?.tools ?? []), ...(mcp?.tools ?? []), ...(skills?.tools ?? [])],
-        systemPrompt: [extension?.systemPrompt, skills?.systemPrompt].filter(Boolean).join('\n'),
+        tools: [
+          ...(extension?.tools ?? []),
+          ...(mcp?.tools ?? []),
+          ...(activeSkills?.tools ?? []),
+          ...(activeSkills
+            ? projectMarketTools(
+                options,
+                activeSkills.catalog.map(({ name }) => name),
+              )
+            : []),
+        ],
+        systemPrompt: [extension?.systemPrompt, activeSkills?.systemPrompt]
+          .filter(Boolean)
+          .join('\n'),
         initialEvents: extensionEvents,
         onEvent(event) {
           if (screen) screen.event(event);
@@ -201,7 +214,17 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
           extension?.onEvent?.(event);
         },
       });
+    }
+
+    function rebuild() {
+      skills = needsModel ? projectSkills(options) : undefined;
+      agent = assemble(skills, true);
       return agent;
+    }
+
+    function agentForResume(id: string) {
+      const run = agent.get(id);
+      return isPending(run) ? assemble(projectSkills(options, run), false) : agent;
     }
     agent = rebuild();
 
@@ -224,6 +247,7 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
           get agent() {
             return agent;
           },
+          agentForResume,
           options,
           terminal,
           models: model,
@@ -278,12 +302,8 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
         return successCode(run);
       }
       case 'resume': {
-        const run = await resumeRun(
-          agent,
-          requireId(rest, command),
-          options.decision,
-          options.attribute,
-        );
+        const id = requireId(rest, command);
+        const run = await resumeRun(agentForResume(id), id, options.decision, options.attribute);
         terminal.run(run);
         if (isPending(run)) terminal.note(pendingHelp(run));
         return successCode(run);
