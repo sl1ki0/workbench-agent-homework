@@ -252,6 +252,9 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
               }
             }
           },
+          evaluation(args) {
+            runEvaluationCommand(args, options, terminal);
+          },
           async market(args) {
             await runMarketCommand(args, options, terminal);
             rebuild();

@@ -97,6 +97,18 @@ export function readModelConfig(env: NodeJS.ProcessEnv = process.env): ModelSett
   };
 }
 
+function qwenMessages(messages: Message[], effort: string | undefined): Message[] {
+  if (!effort) return messages;
+  const index = messages.findLastIndex((message) => message.role === 'user');
+  if (index === -1) return messages;
+  const directive = effort === 'none' ? '/no_think' : '/think';
+  return messages.map((message, position) =>
+    position === index && message.role === 'user'
+      ? { ...message, content: `${message.content}\n\n${directive}` }
+      : message,
+  );
+}
+
 export class OpenAICompatibleModel implements Model {
   constructor(
     readonly settings: ModelSettings,
@@ -110,14 +122,15 @@ export class OpenAICompatibleModel implements Model {
     observe?: ModelObserver,
   ): Promise<ModelReply> {
     const settings = this.settings;
-    const implicitThinking = settings.provider === 'ollama' && /qwen3/iu.test(settings.model);
+    const implicitThinking =
+      settings.provider === 'ollama' && /(?:^|[-/])qwen3(?::|$)/iu.test(settings.model);
     const functions = tools.map(({ name, description, schema }) => ({
       type: 'function',
       function: { name, description, parameters: schema },
     }));
     const params = {
       model: settings.model,
-      messages,
+      messages: implicitThinking ? qwenMessages(messages, settings.reasoningEffort) : messages,
       stream: Boolean(observe),
       ...(observe ? { stream_options: { include_usage: true } } : {}),
       temperature: settings.temperature,

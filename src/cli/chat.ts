@@ -19,6 +19,7 @@ interface ChatHost {
   skills?(action?: string, name?: string): void;
   mcp?(args: string[]): Promise<void>;
   market?(args: string[]): Promise<void>;
+  evaluation?(args: string[]): void;
   doctor?(sessionId: string): Promise<void> | void;
 }
 
@@ -31,6 +32,7 @@ const commands: CommandHint[] = [
   { name: '/skills', description: 'Список · on · off · enable NAME · disable NAME' },
   { name: '/mcp', description: 'list · test · add ID JSON · remove ID · search QUERY' },
   { name: '/market', description: 'Поиск, установка и обновление скиллов' },
+  { name: '/eval', description: 'list · run base|extended · report ID' },
   { name: '/tasks', description: 'План и результаты задач' },
   { name: '/diff', description: 'Правки текущего запуска' },
   { name: '/doctor', description: 'Разбор журнала сессии' },
@@ -51,6 +53,15 @@ const recoveryHints: CommandHint[] = [
   { name: '/skip', description: 'Отметить вызов неуспешным' },
   { name: '/abort', description: 'Завершить запуск с ошибкой' },
 ];
+
+function mcpArguments(line: string): string[] {
+  return (
+    /^\/mcp(?:\s+(\S+))?(?:\s+(\S+))?(?:\s+([\s\S]+))?$/u
+      .exec(line)
+      ?.slice(1)
+      .filter((arg): arg is string => Boolean(arg)) ?? []
+  );
+}
 
 export async function chat(host: ChatHost): Promise<void> {
   const { options, terminal, models } = host;
@@ -156,12 +167,7 @@ export async function chat(host: ChatHost): Promise<void> {
           case 'mcp':
             if (current && isPending(current) && ['add', 'remove', 'test'].includes(action ?? ''))
               throw new Error(pendingHelp(current));
-            await host.mcp?.(
-              line
-                .replace(/^\/mcp\s*/u, '')
-                .split(/\s+/u)
-                .filter(Boolean),
-            );
+            await host.mcp?.(mcpArguments(line));
             break;
           case 'market':
             if (
@@ -173,6 +179,14 @@ export async function chat(host: ChatHost): Promise<void> {
             await host.market?.(
               line
                 .replace(/^\/market\s*/u, '')
+                .split(/\s+/u)
+                .filter(Boolean),
+            );
+            break;
+          case 'eval':
+            host.evaluation?.(
+              line
+                .replace(/^\/eval\s*/u, '')
                 .split(/\s+/u)
                 .filter(Boolean),
             );

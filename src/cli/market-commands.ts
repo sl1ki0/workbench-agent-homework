@@ -7,6 +7,9 @@ import {
   Market,
   readMarketConfig,
   type InstalledVersion,
+  type InstalledSkill,
+  type AvailableUpdate,
+  type Release,
   type ReconcileResult,
   type UpdateGate,
 } from '../market/index.js';
@@ -344,11 +347,70 @@ export async function runMarketCommand(
         ? { action: first, intervalMinutes: second === undefined ? undefined : Number(second) }
         : namedInput(first, second);
   const result = await operations[kind](input);
-  if (terminal.json) terminal.printJson(result);
-  else if (kind === 'update' || (kind === 'auto' && first === 'run')) {
-    terminal.note(summarizeUpdates(result as MarketOutput[]));
+  if (terminal.json) {
+    terminal.printJson(result);
   } else {
-    terminal.note(JSON.stringify(result, null, 2));
+    terminal.note(formatMarketResult(kind, first, result));
   }
   return 0;
+}
+
+function formatMarketResult(
+  kind: MarketAction,
+  argument: string | undefined,
+  result: unknown,
+): string {
+  switch (kind) {
+    case 'update':
+      return summarizeUpdates(result as MarketOutput[]);
+    case 'auto': {
+      if (argument === 'run') return summarizeUpdates(result as MarketOutput[]);
+      const schedule = result as Schedule;
+      return (
+        `Автопроверка · ${schedule.enabled ? 'включена' : 'выключена'} · интервал ${schedule.intervalMinutes} мин` +
+        (schedule.last
+          ? `\nПоследняя · ${schedule.last.status} · ${schedule.last.message ?? schedule.last.time}`
+          : '')
+      );
+    }
+    case 'list': {
+      const entries = result as InstalledSkill[];
+      return entries.length
+        ? entries
+            .map(
+              ({ name, active, versions }) =>
+                `  ${active ? '●' : '○'} ${name} · ${active?.version ?? 'выключен'} · версий ${versions.length}`,
+            )
+            .join('\n')
+        : 'Маркет · установленных скиллов пока нет';
+    }
+    case 'search':
+    case 'news': {
+      const entries = result as Release[];
+      return entries.length
+        ? entries
+            .map(
+              ({ name, version, registry, description, notes }) =>
+                `  ${name}@${version} · ${registry}\n    ${kind === 'news' && notes ? notes : description}`,
+            )
+            .join('\n')
+        : 'Маркет · совпадений нет';
+    }
+    case 'updates': {
+      const entries = result as AvailableUpdate[];
+      return entries.length
+        ? entries
+            .map(
+              ({ current, candidate }) =>
+                `  ${current.name} · ${current.version} → ${candidate.version} · ${candidate.registry}`,
+            )
+            .join('\n')
+        : 'Маркет · новых версий нет';
+    }
+    case 'install':
+    case 'rollback': {
+      const { name, version, registry } = result as InstalledVersion;
+      return `✓ ${name}@${version} · ${registry} · ${kind === 'install' ? 'активирован' : 'восстановлен'}`;
+    }
+  }
 }

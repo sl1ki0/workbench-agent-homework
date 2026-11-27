@@ -1,0 +1,61 @@
+{
+  "case_id": "open-tasks",
+  "variant": "A",
+  "trial": 1,
+  "session_id": "5b9927d3-9631-4fd2-8899-d1a0c4da7d46",
+  "run_id": "b4858006-777e-4d31-b991-8745d4e61a65",
+  "status": "failed",
+  "outcome_pass": false,
+  "routing_pass_or_na": "n/a",
+  "tool_pass": false,
+  "trial_pass": false,
+  "input_tokens": 673,
+  "output_tokens": 1024,
+  "usage": {
+    "input": {
+      "total": 673,
+      "known": 1,
+      "requests": 1,
+      "status": "complete"
+    },
+    "output": {
+      "total": 1024,
+      "known": 1,
+      "requests": 1,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 388,
+      "known": 1,
+      "requests": 1,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 1,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {},
+  "mcp_calls": {},
+  "error": "Ответ модели прерван лимитом OPENAI_MAX_TOKENS",
+  "duration_ms": 33244,
+  "artifact": null,
+  "journal": "trials/open-tasks/A1/events.jsonl",
+  "spent": {
+    "modelCalls": 1,
+    "toolCalls": 0,
+    "sideEffects": 0,
+    "resultBytes": 0
+  },
+  "outcome_checks": [
+    "Файл результата отсутствует."
+  ],
+  "routing_checks": "n/a",
+  "tool_checks": [
+    "Не найден обязательный успешный вызов в нужном порядке: mcp_tracker_list_tasks {}.",
+    "Не найден обязательный успешный вызов в нужном порядке: write_file {\"path\":\"open-tasks.md\"}."
+  ]
+}

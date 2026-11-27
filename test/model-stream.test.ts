@@ -208,3 +208,30 @@ test('Ollama Qwen keeps hidden prefixes private even when only the closing marke
     { type: 'text', text: '.py' },
   ]);
 });
+
+test('Qwen legacy templates receive an explicit mode directive without changing conversation history', async () => {
+  const messages = [
+    { role: 'user' as const, content: 'List files' },
+    { role: 'assistant' as const, content: 'Earlier answer' },
+  ];
+  for (const [reasoningEffort, directive] of [
+    ['none', '/no_think'],
+    ['low', '/think'],
+  ]) {
+    const model = new OpenAICompatibleModel(
+      { ...settings, model: 'workbench-qwen3:4b', reasoningEffort },
+      '',
+      async (_, init) => {
+        const request = JSON.parse(String(init?.body));
+        assert.equal(request.reasoning_effort, reasoningEffort);
+        assert.equal(request.messages[0].content, 'List files\n\n' + directive);
+        assert.equal(request.messages[1].content, 'Earlier answer');
+        return Response.json({
+          choices: [{ message: { role: 'assistant', content: 'Visible reply' } }],
+        });
+      },
+    );
+    await model.complete(messages, []);
+  }
+  assert.equal(messages[0]?.content, 'List files');
+});

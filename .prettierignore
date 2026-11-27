@@ -4,3 +4,4 @@ dist
 package-lock.json
 *.jsonl
 eval/evidence
+docs/evidence/ab-incomplete

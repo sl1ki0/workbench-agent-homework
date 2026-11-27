@@ -1,0 +1,359 @@
+{
+  "created_at": "2026-11-27T19:27:56.623Z",
+  "experiment": "A/B",
+  "node": "v24.10.0",
+  "model": {
+    "provider": "ollama",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "model": "workbench-qwen3:4b",
+    "timeoutMs": 90000,
+    "temperature": 0.2,
+    "maxTokens": 1024,
+    "reasoningEffort": "none"
+  },
+  "mode": "auto",
+  "limits": {
+    "modelCalls": 12,
+    "toolCalls": 24,
+    "sideEffects": 8,
+    "resultBytes": 64000
+  },
+  "mcp": "config/mcp.json",
+  "policy": "eval/fixtures/policy.json",
+  "configurations": {
+    "A": {
+      "skills": false
+    },
+    "B": {
+      "skills": true,
+      "directories": [
+        "skills"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "open-tasks",
+      "prompt": "Составь отчёт по открытым задачам учебного трекера. Сохрани его в open-tasks.md в виде Markdown-таблицы с колонками ID и Название. Упорядочь строки по ID.",
+      "artifact": "open-tasks.md",
+      "expectedSkill": "open-task-report",
+      "allowedTools": [
+        "list_files",
+        "read_file",
+        "write_file",
+        "mcp_tracker_list_tasks",
+        "mcp_tracker_get_task"
+      ],
+      "requiredCalls": [
+        {
+          "name": "mcp_tracker_list_tasks"
+        },
+        {
+          "name": "write_file",
+          "args": {
+            "path": "open-tasks.md"
+          }
+        }
+      ]
+    },
+    {
+      "id": "progress",
+      "prompt": "Сделай короткую Markdown-сводку прогресса по progress.json. Сохрани в progress-summary.md. Приведи таблицу с колонками Ученик, Завершено, Минуты. По каждому ученику посчитай только завершённые занятия и их суммарные минуты. Добавь строку Итого.",
+      "source": "progress.json",
+      "artifact": "progress-summary.md",
+      "expectedSkill": "progress-summary",
+      "allowedTools": [
+        "list_files",
+        "read_file",
+        "write_file"
+      ],
+      "requiredCalls": [
+        {
+          "name": "read_file",
+          "args": {
+            "path": "progress.json"
+          }
+        },
+        {
+          "name": "write_file",
+          "args": {
+            "path": "progress-summary.md"
+          }
+        }
+      ]
+    },
+    {
+      "id": "no-skill",
+      "prompt": "Скопируй содержимое файла note.txt без изменений в evidence.txt.",
+      "source": "note.txt",
+      "artifact": "evidence.txt",
+      "expectedSkill": null,
+      "allowedTools": [
+        "list_files",
+        "read_file",
+        "write_file"
+      ],
+      "requiredCalls": [
+        {
+          "name": "read_file",
+          "args": {
+            "path": "note.txt"
+          }
+        },
+        {
+          "name": "write_file",
+          "args": {
+            "path": "evidence.txt"
+          }
+        }
+      ]
+    },
+    {
+      "id": "closed-tasks",
+      "prompt": "Сохрани закрытые задачи учебного трекера в closed-tasks.md. Нужна Markdown-таблица со столбцами ID и Название, отсортированная по ID.",
+      "artifact": "closed-tasks.md",
+      "expectedSkill": null,
+      "allowedTools": [
+        "list_files",
+        "read_file",
+        "write_file",
+        "mcp_tracker_list_tasks",
+        "mcp_tracker_get_task"
+      ],
+      "requiredCalls": [
+        {
+          "name": "mcp_tracker_list_tasks"
+        },
+        {
+          "name": "write_file",
+          "args": {
+            "path": "closed-tasks.md"
+          }
+        }
+      ]
+    },
+    {
+      "id": "progress-variant",
+      "prompt": "Собери progress-summary.md по progress.json. Напиши Markdown-таблицу Ученик, Завершено, Минуты. Включи всех учеников, считай только завершённые занятия, последней строкой дай Итого.",
+      "source": "progress.json",
+      "artifact": "progress-summary.md",
+      "expectedSkill": "progress-summary",
+      "allowedTools": [
+        "list_files",
+        "read_file",
+        "write_file"
+      ],
+      "requiredCalls": [
+        {
+          "name": "read_file",
+          "args": {
+            "path": "progress.json"
+          }
+        },
+        {
+          "name": "write_file",
+          "args": {
+            "path": "progress-summary.md"
+          }
+        }
+      ]
+    }
+  ],
+  "order": [
+    [
+      "open-tasks",
+      "A",
+      1
+    ],
+    [
+      "open-tasks",
+      "B",
+      1
+    ],
+    [
+      "open-tasks",
+      "A",
+      2
+    ],
+    [
+      "open-tasks",
+      "B",
+      2
+    ],
+    [
+      "open-tasks",
+      "A",
+      3
+    ],
+    [
+      "open-tasks",
+      "B",
+      3
+    ],
+    [
+      "progress",
+      "A",
+      1
+    ],
+    [
+      "progress",
+      "B",
+      1
+    ],
+    [
+      "progress",
+      "A",
+      2
+    ],
+    [
+      "progress",
+      "B",
+      2
+    ],
+    [
+      "progress",
+      "A",
+      3
+    ],
+    [
+      "progress",
+      "B",
+      3
+    ],
+    [
+      "no-skill",
+      "A",
+      1
+    ],
+    [
+      "no-skill",
+      "B",
+      1
+    ],
+    [
+      "no-skill",
+      "A",
+      2
+    ],
+    [
+      "no-skill",
+      "B",
+      2
+    ],
+    [
+      "no-skill",
+      "A",
+      3
+    ],
+    [
+      "no-skill",
+      "B",
+      3
+    ],
+    [
+      "closed-tasks",
+      "A",
+      1
+    ],
+    [
+      "closed-tasks",
+      "B",
+      1
+    ],
+    [
+      "closed-tasks",
+      "A",
+      2
+    ],
+    [
+      "closed-tasks",
+      "B",
+      2
+    ],
+    [
+      "closed-tasks",
+      "A",
+      3
+    ],
+    [
+      "closed-tasks",
+      "B",
+      3
+    ],
+    [
+      "progress-variant",
+      "A",
+      1
+    ],
+    [
+      "progress-variant",
+      "B",
+      1
+    ],
+    [
+      "progress-variant",
+      "A",
+      2
+    ],
+    [
+      "progress-variant",
+      "B",
+      2
+    ],
+    [
+      "progress-variant",
+      "A",
+      3
+    ],
+    [
+      "progress-variant",
+      "B",
+      3
+    ]
+  ],
+  "files_sha256": {
+    "config/Modelfile.eval": "f9935617a13506f145e59039af06d3394e179b273c2330c33329e9b717c50582",
+    "config/mcp.json": "4db29e2fadde594fffca7d9b0e297f9f8613db70a10f7800ee8f40902df97a66",
+    "docs/evaluation-protocol.md": "7f14e70c920f7f5f49be0680ecff0f494b739eb6a3af71825ca4b899d5308b93",
+    "eval/cases.ts": "6fb31b03484f46626b152dc120b16b0b0e3d33c2781be9370dd09ab3625dc63f",
+    "eval/checks/markdown.ts": "1b497520eedbd6d816ec96c70eff8fa64af1bf33600fe7509cbbf66bee0f4c12",
+    "eval/checks/no-skill.ts": "b6ce79f6d50f9655ce4611d82fa0fea8bcfe24b535a6508e806de63e55761889",
+    "eval/checks/open-tasks.ts": "54331b92ee999c442278a9f204883c08d631517f0a0957834d25488db058e26c",
+    "eval/checks/progress.ts": "04e77b5f3053bc8302365bb193cee191a519424216175a872ce8a299d4acfd2e",
+    "eval/fixtures/no-skill/note.txt": "e0d6888e2e2f6141a4d7363eb51584357c0ec231083dc35bd538d5987abeb655",
+    "eval/fixtures/policy.json": "27e0c6668ec035c6629b34dfd3196a34238e999e9ba5125bbd1c891804a6d2aa",
+    "eval/fixtures/progress-variant/progress.json": "50eba875846943a40d432d7377fa16c52061a45ed4cc381a177f9253a1831594",
+    "eval/fixtures/progress/progress.json": "7db4801e0719ce4b8712044dc0daca22ccf095462cb4949e80c881517af04cc6",
+    "eval/index.ts": "3f592d0c5b42b5caf4dbc625aa71fc0a2f64ddfdd9ff634740f3846c31262442",
+    "eval/report.ts": "968c9dfbbc78f26593a4ffdf35edfba163791fbe1ca7b5b99dc5cc66846d7a96",
+    "eval/runner.ts": "6cabf0a555d1a1b3aeca5328db9df2d4b0bbd98eaa6b2885562667caa63bbb88",
+    "eval/scoring.ts": "c2232f9b620baa0b3665a0047bfcdaeddbad5058973f6e7e1c556060a520c126",
+    "package-lock.json": "7e6bff883dc4d809f7a8c0eac840973678821c5237c2ab76fc3cf75477f24cff",
+    "skills/open-task-report/SKILL.md": "65b292145bbd813cf29580f7aa695d3d4963acbb9d732ea53cd249bcead0e521",
+    "skills/presentation-design/SKILL.md": "2c8ed3ba1d8d84b150f5ce1324bcf353e8341dce9cab8e76bfea99120b9da9d8",
+    "skills/progress-summary/SKILL.md": "f1785e3fd661d3867ff6aaf7bbd79c383b10b95568baf7bf672ea4353cf86d41",
+    "src/mcp/config.ts": "16e567eb0aeb2060c065ed3cbde1bc13a9f8b229d46e5466d883c9302941327e",
+    "src/mcp/index.ts": "ce5581d05c364f9e624f052970e1ce40ac1fc6096d76e623b2c2245336da77a3",
+    "src/mcp/manager.ts": "52491f92916c4f9533806c3a221a841218632d8260c2ce51df44ca5d2a103b53",
+    "src/mcp/tasks.json": "879bc4bd8c3667ceddba3a33919972b72c6b19dbc24c7e8986fd6742775744fd",
+    "src/mcp/tracker-server.ts": "6f2708ac67e7362de541d4aabd25ffee2e743b38def766a1be54e0d4580dcfae",
+    "src/model/index.ts": "9f701597e8c5be1b1d847dd90a9990be30c8407d225f0e4d1c9601a4e937661c",
+    "src/model/protocol.ts": "a90378ef2dae214c5d07929debcf4c552ef2e0b7b82fb2cc1c76d3c11cde6814",
+    "src/model/sse.ts": "ed1c9f822027a4043659a5c35895455d0c733ee577010b9346f67b2cb456bf2e",
+    "src/model/stream.ts": "49f4539a9d04c3efce0497f141574300a27bb205f0536af87154278bd1d733ef",
+    "src/model/visible-text.ts": "3b7b47008511f16d5aa85d8722d2868ddab0784fa3401b35d87fc4e346b2a69b",
+    "src/runtime/index.ts": "9a8072287ebba460d62f75e94da9c244a39af641b8056e5341df1673cbb0c122",
+    "src/runtime/plan.ts": "2ae78245c7afbf674935ca600680739b88c488a117d871c0b5a4155af229bc52",
+    "src/runtime/state.ts": "cc5321c5f008fb7ffef2bc12254566e9903501dbec14d9b425450fd396b075e4",
+    "src/runtime/stats.ts": "88347e3336babd7235ec5dea7bd7c2abe6650359fd724e287c7088c5f1ce50fe",
+    "src/runtime/tooling.ts": "dc75c47ab96ae07ae5de7ebc3680819252f5d8fed5ebf91b4dd19d41671cd21e",
+    "src/runtime/types.ts": "a781b5e511df0d68f736f5d5d97b57eda01c72f73ad6df7db098f571f47bc810",
+    "src/skills/index.ts": "a04dae5dbcde8dbeb0432c84c3ff7881272a19e4b060a74adb7eba892f98f918",
+    "src/skills/selection.ts": "c8a8aec56bfb3fffecefb2cbef43197f709c5afd4831c2886af3656b76f458b5",
+    "src/types.ts": "2b35336a87e9754c492fca391be543a562a60e4345233c49d7493200b3bc4d55",
+    "src/workspace/bash.ts": "e8a54a9dfd3ae06afe36be956ce23d296f52f3f3d541b0e657f10647ba526abd",
+    "src/workspace/index.ts": "48698b4341b5bf10184cee44cfaf4d19a5d0271edf77e40ba63cdc7f78bdb0c3",
+    "src/workspace/policy.ts": "467f6f9bf537ec75dd19c25f1a83454cd440547ef0633d1a8ea0964d9baaf738",
+    "src/workspace/tools.ts": "c1363bca0dcb8f31551fab2e6a1a1eb7bf798b3f55cc6635983cbf096e05b44d"
+  }
+}

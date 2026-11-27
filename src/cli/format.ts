@@ -50,6 +50,29 @@ function usageLine(usage: CliRun['usage']): string {
   return [main, ...details].join(' · ');
 }
 
+function toolSummary(value: unknown): string {
+  const output = record(value);
+  if (typeof output.exitCode === 'number') return `exit ${output.exitCode}`;
+  if (typeof output.count === 'number') return `записей ${output.count}`;
+  if (Array.isArray(output.files)) return `файлов ${output.files.length}`;
+  if (typeof output.bytesWritten === 'number') return `записано ${output.bytesWritten} Б`;
+  if (typeof output.content === 'string') return `прочитано ${Buffer.byteLength(output.content)} Б`;
+  if (typeof output.deleted === 'boolean')
+    return output.deleted ? 'файл удалён' : 'файл уже отсутствует';
+  return '';
+}
+
+function bashPreview(value: unknown): string[] {
+  const output = record(value);
+  const text = [output.stdout, output.stderr].filter((item) => typeof item === 'string').join('\n');
+  return terminalText(text)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-4)
+    .map((line) => shorten(line, 140));
+}
+
 const helpLines = [
   '  chat                         Диалог с агентом, режим по умолчанию',
   '  start "задача"               Запустить задачу один раз',
@@ -170,12 +193,18 @@ export class Terminal {
       }
       case 'tool_result': {
         const result = record(data.result);
-        if (result.ok) {
-          const output = record(result.output);
-          const detail = typeof output.count === 'number' ? ` · записей ${output.count}` : '';
-          this.line(
-            `  ${tone(this.color, '32', '✓')} ${target}${detail}${result.truncated ? ' · результат обрезан' : ''}`,
-          );
+        if (result.ok || this.surface) {
+          const details = [
+            toolSummary(result.output),
+            result.ok ? '' : shorten(result.error),
+            result.truncated ? 'результат обрезан' : '',
+          ].filter(Boolean);
+          const sign = result.ok ? tone(this.color, '32', '✓') : tone(this.color, '33', '!');
+          this.line(`  ${sign} ${[target, ...details].filter(Boolean).join(' · ')}`);
+          if (this.surface && target === 'Bash') {
+            for (const line of bashPreview(result.output))
+              this.line(tone(this.color, '2', '    ' + line));
+          }
         }
         break;
       }
@@ -183,6 +212,7 @@ export class Terminal {
         if (this.surface) this.line(`    ${tone(this.color, '2', '↳')} Выполняю ${target}`);
         break;
       case 'tool_error':
+        if (this.surface) break;
         this.line(
           `  ${tone(this.color, '33', '!')} ${target} · ${shorten(data.error ?? record(data.result).error)}`,
         );

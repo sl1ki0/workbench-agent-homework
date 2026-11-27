@@ -3,10 +3,10 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { scenarios } from '../eval/cases.js';
+import { extendedScenarios, scenarios } from '../eval/cases.js';
 import { checkCopy } from '../eval/checks/no-skill.js';
-import { checkOpenTasks } from '../eval/checks/open-tasks.js';
-import { checkProgress } from '../eval/checks/progress.js';
+import { checkClosedTasks, checkOpenTasks } from '../eval/checks/open-tasks.js';
+import { checkAlternateProgress, checkProgress } from '../eval/checks/progress.js';
 import { writeReport } from '../eval/report.js';
 import { executeTrials, type TrialRow } from '../eval/runner.js';
 import type { AgentEvent, ModelReply } from '../src/types.js';
@@ -42,6 +42,23 @@ test('eval artifact verifiers recognize exact content and reject plausible incor
   const note = readFileSync(join(process.cwd(), 'eval/fixtures/no-skill/note.txt'));
   assert.equal(checkCopy(note).pass, true);
   assert.equal(checkCopy(note.subarray(0, -1)).pass, false);
+});
+
+test('additional evaluation scenarios distinguish closed tasks and a second dataset', () => {
+  assert.equal(extendedScenarios.length, 5);
+  const closed = Buffer.from(
+    '| ID | Название |\n| --- | --- |\n| T2 | Сдать вводное задание |\n| T5 | Настроить окружение |\n',
+  );
+  assert.equal(checkClosedTasks(closed).pass, true);
+  assert.equal(checkClosedTasks(Buffer.from(taskTable)).pass, false);
+  const second = Buffer.from(
+    progressTable
+      .replace('| 1 | 25 |', '| 2 | 35 |')
+      .replace('| 2 | 75 |', '| 1 | 26 |')
+      .replace('| 3 | 100 |', '| 3 | 61 |'),
+  );
+  assert.equal(checkAlternateProgress(second).pass, true);
+  assert.equal(checkAlternateProgress(Buffer.from(progressTable)).pass, false);
 });
 
 function call(id: string, name: string, args: Record<string, unknown>): ModelReply {
