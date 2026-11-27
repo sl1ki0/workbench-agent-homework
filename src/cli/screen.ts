@@ -6,6 +6,7 @@ import { summarizeUsage } from '../runtime/stats.js';
 import type { UsageSummary } from '../runtime/types.js';
 import type { TerminalEditor } from './editor.js';
 import { type CliRun, Terminal, terminalText } from './format.js';
+import { Footer } from './footer.js';
 import type { Inventory } from './inventory.js';
 
 export type PermissionView = 'Plan' | 'Ask for edits' | 'YOLO';
@@ -14,9 +15,9 @@ interface ScreenState {
   mode: PermissionView;
   settings: ModelSettings;
   pending?: string;
+  queue: readonly string[];
 }
 
-const ansi = '\x1b[';
 const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const characters = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
@@ -56,11 +57,12 @@ function handles(event: AgentEvent): string {
 }
 
 export class ChatScreen {
-  private rows = 0;
-  private cursorRow = 0;
+  private readonly footer = new Footer();
+  private transcript: string[] = [];
   private queued?: NodeJS.Timeout;
   private ticker?: NodeJS.Timeout;
-  private activity?: { label: string; started: number };
+  private activity?: { label: string; started: number; thinking: boolean };
+  private thinkingSeen = false;
   private started?: ReturnType<typeof performance.now>;
   private request = 0;
   private usage?: UsageSummary;
@@ -117,8 +119,7 @@ export class ChatScreen {
   }
 
   writeLine(value: string): void {
-    this.erase();
-    this.stream.write(value.replace(/\r?\n/gu, '\r\n') + '\r\n');
+    this.transcript.push(value.replace(/\r?\n/gu, '\r\n') + '\r\n');
     this.changed();
   }
 
@@ -135,7 +136,10 @@ export class ChatScreen {
   }
 
   progress = (progress: ModelProgress) => {
-    if (progress.type === 'thinking' && !this.liveText) this.setActivity('Думает');
+    if (progress.type === 'thinking') {
+      this.thinkingSeen = true;
+      if (!this.liveText) this.setActivity('Thinking · модель обдумывает запрос', true);
+    }
     if (progress.type === 'tool') this.setActivity('Модель выбирает инструмент');
     if (progress.type === 'text') {
       this.liveText += progress.text;
@@ -150,17 +154,20 @@ export class ChatScreen {
         this.started ??= performance.now();
         break;
       case 'model_request':
+        this.thinkingSeen = false;
         this.request = Number(data.request) || 0;
         this.usage = summarizeUsage(this.samples, this.request);
         this.setActivity('Жду модель');
         break;
       case 'model_usage':
+        this.finishThinking();
         if (data.usage && typeof data.usage === 'object') this.samples.push(data.usage as Usage);
         this.usage = summarizeUsage(this.samples, this.request);
         this.finishText();
         this.setActivity('Обрабатываю ответ');
         break;
       case 'model_error':
+        this.finishThinking();
         this.finishText(false);
         break;
       case 'tool_started':
@@ -216,8 +223,7 @@ export class ChatScreen {
     clearTimeout(this.queued);
     clearInterval(this.ticker);
     this.stream.off('resize', this.changed);
-    this.erase();
-    this.stream.write(ansi + '?25h');
+    this.stream.write(this.footer.close(this.takeTranscript()));
     this.terminal.surface = undefined;
   }
 
@@ -229,27 +235,33 @@ export class ChatScreen {
     this.writeLine(this.paintColor('1;35', '◈ Ответ') + '\r\n' + terminalText(value.trim()));
   }
 
-  private setActivity(label: string): void {
+  private finishThinking(): void {
+    if (!this.thinkingSeen) return;
+    this.thinkingSeen = false;
+    this.writeLine(this.paintColor('2;35', '  ◇ Thinking · сигнал от модели'));
+  }
+
+  private setActivity(label: string, thinking = false): void {
     this.started ??= performance.now();
-    if (this.activity?.label !== label) this.activity = { label, started: performance.now() };
+    if (this.activity?.label !== label) {
+      this.activity = { label, started: performance.now(), thinking };
+    }
     this.ticker ??= setInterval(this.changed, 125).unref();
     this.changed();
   }
 
   private paintColor(code: string, text: string): string {
-    return this.terminal.color ? ansi + code + 'm' + text + ansi + '0m' : text;
+    return this.terminal.color ? '\x1b[' + code + 'm' + text + '\x1b[0m' : text;
   }
 
-  private erase(): void {
-    if (!this.rows) return;
-    const up = this.cursorRow ? ansi + this.cursorRow + 'A' : '';
-    this.stream.write('\r' + up + ansi + 'J');
-    this.rows = 0;
+  private takeTranscript(): string {
+    const value = this.transcript.join('');
+    this.transcript = [];
+    return value;
   }
 
   private paint(): void {
     if (this.closed || !this.editor) return;
-    this.erase();
     const width = Math.max(8, (this.stream.columns || 80) - 1);
     const height = this.stream.rows || 24;
     const view = this.editor.view();
@@ -257,23 +269,45 @@ export class ChatScreen {
     const rows: string[] = [];
     const add = (value: string, color: string) =>
       rows.push(this.paintColor(color, clipped(value, width)));
-    if (this.activity) {
+    const showQueue = height >= 2 && state.queue.length > 0;
+    const showActivity = height > (showQueue ? 2 : 1) && Boolean(this.activity || state.pending);
+    const showStatus = height >= 7;
+    const showLegend = height >= 10;
+    const draft = terminalText(view.text).replaceAll('\t', '  ');
+    const before = terminalText(view.text.slice(0, view.cursor)).replaceAll('\t', '  ');
+    const promptWidth = Math.max(2, width - 2);
+    const lines = wrap(draft, promptWidth);
+    const prefix = wrap(before, promptWidth);
+    const selected = prefix.length - 1;
+    const reserved =
+      Number(showQueue) + Number(showActivity) + (showStatus ? 4 : 0) + Number(showLegend);
+    const cap = Math.max(1, Math.min(height < 12 ? 1 : 4, height - reserved));
+    const spare = Math.max(0, height - reserved - Math.min(cap, lines.length));
+    const suggestions = height >= 12 ? Math.min(4, view.suggestions.length, spare) : 0;
+    if (showActivity && this.activity) {
       const now = performance.now();
       const tick = Math.floor((now - this.activity.started) / 125) % frames.length;
-      const elapsed = ((now - (this.started ?? now)) / 1000).toFixed(1) + ' с';
+      const started = this.activity.thinking ? this.activity.started : (this.started ?? now);
+      const elapsed = ((now - started) / 1000).toFixed(1) + ' с';
       add(
         `${frames[tick]} ${terminalText(this.activity.label)} · запрос ${this.request || '—'} · ${elapsed}`,
-        '1;36',
+        this.activity.thinking ? '1;35' : '1;36',
       );
-    } else if (state.pending) add(state.pending, '1;33');
+    } else if (showActivity && state.pending) add(state.pending, '1;33');
     if (this.liveText && height >= 13) {
-      const limit = Math.min(5, Math.floor(height / 4));
+      const limit = Math.min(5, Math.floor(height / 4), spare - suggestions);
       const answer = wrap(terminalText(this.liveText).replaceAll('\t', '  '), width - 2);
-      for (const row of answer.slice(-limit)) add('  ' + row, '0');
+      for (const row of limit > 0 ? answer.slice(-limit) : []) add('  ' + row, '0');
     }
 
-    if (!view.busy && height >= 12) {
-      for (let i = 0; i < Math.min(4, view.suggestions.length); i += 1) {
+    if (showQueue) {
+      const preview = terminalText(state.queue[0] ?? '').replace(/\s+/gu, ' ');
+      add(`Очередь · ${state.queue.length} · ${preview}`, '1;33');
+    }
+
+    if (suggestions) {
+      const offset = Math.max(0, view.selected - suggestions + 1);
+      for (let i = offset; i < offset + suggestions; i += 1) {
         const hint = view.suggestions[i];
         if (hint)
           add(
@@ -283,14 +317,7 @@ export class ChatScreen {
       }
     }
 
-    add('─'.repeat(width), '2;36');
-    const draft = terminalText(view.text).replaceAll('\t', '  ');
-    const before = terminalText(view.text.slice(0, view.cursor)).replaceAll('\t', '  ');
-    const promptWidth = Math.max(4, width - 2);
-    const lines = wrap(draft, promptWidth);
-    const prefix = wrap(before, promptWidth);
-    const selected = prefix.length - 1;
-    const cap = height < 12 ? 1 : 4;
+    if (showStatus) add('─'.repeat(width), '2;36');
     const offset = Math.max(0, selected - cap + 1);
     const cursorRow = rows.length + selected - offset;
     const cursorCol = Math.min(width - 1, 2 + stringWidth(prefix.at(-1) ?? ''));
@@ -299,7 +326,7 @@ export class ChatScreen {
         state.pending
           ? '› Решение или /help'
           : view.busy
-            ? '› Запуск выполняется…'
+            ? '› Следующее сообщение'
             : '› Сообщение или /команда',
         '2',
       );
@@ -308,34 +335,29 @@ export class ChatScreen {
         .slice(offset, offset + cap)
         .forEach((line, index) => add((index === 0 ? '› ' : '  ') + line, '0'));
     }
-    add('─'.repeat(width), '2;36');
-    const { settings, mode } = state;
-    add(
-      `[${mode}]  ${terminalText(settings.model)} · thinking ${level(settings.reasoningEffort)}`,
-      '1;36',
-    );
-    add(
-      `вход ${metric(this.usage?.input)} · выход ${metric(this.usage?.output)} · кэш ${metric(this.usage?.cached)} · запросы ${this.request}`,
-      '2',
-    );
-    if (height >= 10)
+    if (showStatus) {
+      add('─'.repeat(width), '2;36');
+      const { settings, mode } = state;
+      add(
+        `[${mode}]  ${terminalText(settings.model)} · thinking ${level(settings.reasoningEffort)}`,
+        '1;36',
+      );
+      add(
+        `вход ${metric(this.usage?.input)} · выход ${metric(this.usage?.output)} · кэш ${metric(this.usage?.cached)} · запросы ${this.request}`,
+        '2',
+      );
+    }
+    if (showLegend)
       add(
         `Skills ${this.inventory.skills.length} · MCP ${this.inventory.servers.filter(({ error }) => !error).length}    Tab режим · Ctrl+U очистить · /help`,
         '2',
       );
 
-    const cursorUp = rows.length - 1 - cursorRow;
-    this.stream.write(
-      ansi +
-        '?25l' +
-        rows.join('\r\n') +
-        '\r' +
-        (cursorUp > 0 ? ansi + cursorUp + 'A' : '') +
-        (cursorCol > 0 ? ansi + cursorCol + 'C' : '') +
-        (view.busy ? '' : ansi + '?25h'),
+    const output = this.footer.render(
+      { rows, row: cursorRow, column: cursorCol, width, height },
+      this.takeTranscript(),
     );
-    this.rows = rows.length;
-    this.cursorRow = cursorRow;
+    if (output) this.stream.write(output);
   }
 }
 

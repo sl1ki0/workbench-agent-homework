@@ -90,14 +90,13 @@ test('history restores the draft; Ctrl+C clears a draft, requests interruption o
   assert.equal(editor.view().text, 'черновик');
 
   editor.setBusy(true);
+  assert.deepEqual(press(editor, 'c', { ctrl: true }), { type: 'change' });
   assert.deepEqual(press(editor, 'c', { ctrl: true }), { type: 'interrupt' });
   press(editor, 'paste-start');
-  editor.setBusy(false);
-  type(editor, 'unexpected');
+  type(editor, 'follow-up');
   press(editor, 'paste-end');
-  assert.equal(editor.view().text, 'черновик');
+  assert.deepEqual(press(editor, 'return'), { type: 'submit', text: 'follow-up' });
 
-  assert.deepEqual(press(editor, 'c', { ctrl: true }), { type: 'change' });
-  assert.equal(editor.view().text, '');
+  editor.setBusy(false);
   assert.deepEqual(press(editor, 'c', { ctrl: true }), { type: 'exit' });
 });

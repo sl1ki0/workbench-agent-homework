@@ -68,7 +68,7 @@ export class EditorBuffer {
   private busy = false;
   private selected = 0;
   private dismissed = false;
-  private paste: { parts: string[]; discard: boolean } | undefined;
+  private paste: string[] | undefined;
   private readonly history: string[] = [];
   private historyIndex = 0;
   private parkedDraft = '';
@@ -91,31 +91,29 @@ export class EditorBuffer {
 
   key(value: string | undefined, key: EditorKey): EditorAction | undefined {
     if (key.name === 'paste-start') {
-      this.paste ??= { parts: [], discard: this.busy };
+      this.paste ??= [];
       return;
     }
     if (this.paste) {
       if (key.name !== 'paste-end') {
-        if (!this.paste.discard) this.paste.parts.push(pasteKey(value, key));
+        this.paste.push(pasteKey(value, key));
         return;
       }
-      const { parts, discard } = this.paste;
+      const parts = this.paste;
       this.paste = undefined;
-      if (this.busy || discard) return;
       this.insert(parts.join(''));
       return { type: 'change' };
     }
     if (key.name === 'paste-end') return;
 
     if (key.name === 'c' && key.ctrl) {
-      if (this.busy) return { type: 'interrupt' };
-      if (!this.text) return { type: 'exit' };
+      if (!this.text) return this.busy ? { type: 'interrupt' } : { type: 'exit' };
       this.replace('');
       return { type: 'change' };
     }
-    if (this.busy) return;
     if (key.name === 'tab') return { type: 'cycle', direction: key.shift ? -1 : 1 };
-    if (key.name === 'd' && key.ctrl && !this.text) return { type: 'exit' };
+    if (key.name === 'd' && key.ctrl && !this.text)
+      return this.busy ? { type: 'interrupt' } : { type: 'exit' };
     if (key.name === 'return' && !key.meta && !key.shift) return this.submit();
 
     switch (key.name) {

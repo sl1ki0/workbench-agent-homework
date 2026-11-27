@@ -28,6 +28,7 @@ const permissions: PermissionView[] = ['Plan', 'Ask for edits', 'YOLO'];
 const commands: CommandHint[] = [
   { name: '/status', description: 'Модель, скиллы и серверы MCP' },
   { name: '/stats', description: 'Расход и инструменты сессии' },
+  { name: '/queue', description: 'Ожидающие сообщения · /queue clear' },
   { name: '/thinking', description: 'off · low · medium · high · default' },
   { name: '/skills', description: 'Список · on · off · enable NAME · disable NAME' },
   { name: '/mcp', description: 'list · test · add ID JSON · remove ID · search QUERY' },
@@ -69,6 +70,7 @@ export async function chat(host: ChatHost): Promise<void> {
   let plan = options.plan;
   let sessionId = options.session;
   let current: CliRun | undefined;
+  const queue: { text: string; mode: CliOptions['mode']; plan: boolean }[] = [];
   const fromTerminal = Boolean(
     process.stdin.isTTY && process.stdout.isTTY && process.env.TERM !== 'dumb' && !terminal.json,
   );
@@ -80,6 +82,7 @@ export async function chat(host: ChatHost): Promise<void> {
           mode: permission(),
           settings: models.settings(),
           pending: current && isPending(current) ? pendingHelp(current) : undefined,
+          queue: queue.map(({ text }) => text),
         }),
         host.inventory,
       )
@@ -131,7 +134,7 @@ export async function chat(host: ChatHost): Promise<void> {
       );
   }
 
-  async function handle(raw: string): Promise<boolean> {
+  async function handle(raw: string, runMode = { mode, plan }): Promise<boolean> {
     const line = raw.trim();
     if (!line) return true;
     if (line === '/exit' || line === '/quit') return false;
@@ -140,7 +143,7 @@ export async function chat(host: ChatHost): Promise<void> {
         if (current && isPending(current)) throw new Error(pendingHelp(current));
         host.refreshSkills?.();
         screen?.begin(line);
-        show(await host.agent.start(startArgs(line, { ...options, mode, plan }, sessionId)));
+        show(await host.agent.start(startArgs(line, { ...options, ...runMode }, sessionId)));
       } else {
         const [command, action, extra] = line.slice(1).split(/\s+/u);
         switch (command) {
@@ -155,6 +158,19 @@ export async function chat(host: ChatHost): Promise<void> {
             break;
           case 'status':
             status();
+            break;
+          case 'queue':
+            if (action === 'clear' && !extra) {
+              const count = queue.length;
+              queue.length = 0;
+              terminal.note(`Очередь очищена · снято ${count}`);
+            } else if (!action) {
+              terminal.note(
+                queue.length
+                  ? queue.map(({ text }, index) => `${index + 1}. ${text}`).join('\n')
+                  : 'Очередь пуста.',
+              );
+            } else throw new Error('/queue или /queue clear');
             break;
           case 'thinking':
             if (action) models.setThinking(action);
@@ -208,7 +224,13 @@ export async function chat(host: ChatHost): Promise<void> {
           }
           case 'resume': {
             const id = required(action, 'Укажите RUN_ID.');
-            screen?.resetUsage(host.agent.get(id));
+            const savedRun = host.agent.get(id);
+            if (queue.length && savedRun.sessionId !== sessionId) {
+              throw new Error(
+                'В очереди есть сообщения текущей сессии. Для смены сессии используйте /queue clear.',
+              );
+            }
+            screen?.resetUsage(savedRun);
             show(await resumeRun(host.agent, id));
             break;
           }
@@ -227,6 +249,10 @@ export async function chat(host: ChatHost): Promise<void> {
             terminal.note(`Режим следующих запусков · ${permission()}`);
             break;
           case 'session':
+            if (queue.length)
+              throw new Error(
+                'В очереди есть сообщения. Для смены сессии используйте /queue clear.',
+              );
             if (current && isPending(current)) throw new Error(pendingHelp(current));
             selectSession(
               action === 'new' ? undefined : required(action, '/session SESSION_ID|new'),
@@ -254,8 +280,6 @@ export async function chat(host: ChatHost): Promise<void> {
       }
     } catch (error) {
       terminal.error(error);
-    } finally {
-      screen?.settle();
     }
     return true;
   }
@@ -283,18 +307,53 @@ export async function chat(host: ChatHost): Promise<void> {
   process.once('exit', dispose);
   try {
     await new Promise<void>((resolve, reject) => {
+      let active = false;
+      function requestExit(): void {
+        if (active) terminal.note('Дождитесь завершения текущего запроса.');
+        else if (queue.length)
+          terminal.note('В очереди есть сообщения. Очистите её через /queue clear перед выходом.');
+        else resolve();
+      }
+
+      function drain(): void {
+        if (active || (current && (isPending(current) || current.status === 'running'))) return;
+        const next = queue.shift();
+        if (next) run(next.text, next);
+      }
+
+      function run(line: string, permission = { mode, plan }): void {
+        active = true;
+        editor?.setBusy(true);
+        void handle(line, permission).then((keepOpen) => {
+          active = false;
+          view.settle();
+          editor?.setBusy(false);
+          if (keepOpen) drain();
+          else requestExit();
+        }, reject);
+      }
+
       editor = new TerminalEditor(process.stdin, process.stdout, {
         commands: hints,
         onChange: view.changed,
         onCycleMode: cycle,
-        onExit: resolve,
-        onInterrupt: () => terminal.note('Запуск ещё выполняется. Дождитесь ответа или таймаута.'),
+        onExit: requestExit,
+        onInterrupt: requestExit,
         onSubmit(line) {
-          editor?.setBusy(true);
-          void handle(line).then((keepOpen) => {
-            if (keepOpen) editor?.setBusy(false);
-            else resolve();
-          }, reject);
+          if (!line.startsWith('/')) {
+            queue.push({ text: line, mode, plan });
+            drain();
+          } else if (line === '/exit' || line === '/quit') {
+            requestExit();
+          } else if (/^\/queue(?:\s|$)/u.test(line)) {
+            void handle(line).catch(reject);
+          } else if (active) {
+            terminal.note(
+              'Команда доступна после текущего запроса. Очередь можно посмотреть через /queue.',
+            );
+          } else {
+            run(line);
+          }
         },
       });
       view.editor = editor;
