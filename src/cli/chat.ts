@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline';
 import type { Agent } from '../runtime/index.js';
 import { isPending, pendingHelp, required, resumeRun, startArgs } from './actions.js';
+import { CatalogPanel, type CatalogSource } from './catalog-panel.js';
 import { TerminalEditor, type CommandHint } from './editor.js';
 import { Terminal, type CliRun } from './format.js';
 import type { Inventory } from './inventory.js';
@@ -16,6 +17,7 @@ interface ChatHost {
   inventory: Inventory;
   onScreen?(screen?: ChatScreen): void;
   refreshSkills?(): void;
+  catalogs?: { skills: CatalogSource; mcp: CatalogSource };
   skills?(action?: string, name?: string): void;
   mcp?(args: string[]): Promise<void>;
   market?(args: string[]): Promise<void>;
@@ -30,8 +32,8 @@ const commands: CommandHint[] = [
   { name: '/stats', description: 'Расход и инструменты сессии' },
   { name: '/queue', description: 'Ожидающие сообщения · /queue clear' },
   { name: '/thinking', description: 'off · low · medium · high · default' },
-  { name: '/skills', description: 'Список · on · off · enable NAME · disable NAME' },
-  { name: '/mcp', description: 'list · test · add ID JSON · remove ID · search QUERY' },
+  { name: '/skills', description: 'Интерактивный список · /skills list' },
+  { name: '/mcp', description: 'Список и статусы · test · add · remove · search' },
   { name: '/market', description: 'Поиск, установка и обновление скиллов' },
   { name: '/eval', description: 'list · run base|extended · report ID' },
   { name: '/tasks', description: 'План и результаты задач' },
@@ -177,8 +179,9 @@ export async function chat(host: ChatHost): Promise<void> {
             terminal.note(`Thinking · ${level(models.settings().reasoningEffort)}`);
             break;
           case 'skills':
-            if (action && current && isPending(current)) throw new Error(pendingHelp(current));
-            host.skills?.(action, extra);
+            if (action && action !== 'list' && current && isPending(current))
+              throw new Error(pendingHelp(current));
+            host.skills?.(action === 'list' ? undefined : action, extra);
             break;
           case 'mcp':
             if (current && isPending(current) && ['add', 'remove', 'test'].includes(action ?? ''))
@@ -316,7 +319,12 @@ export async function chat(host: ChatHost): Promise<void> {
       }
 
       function drain(): void {
-        if (active || (current && (isPending(current) || current.status === 'running'))) return;
+        if (
+          view.catalog ||
+          active ||
+          (current && (isPending(current) || current.status === 'running'))
+        )
+          return;
         const next = queue.shift();
         if (next) run(next.text, next);
       }
@@ -333,8 +341,41 @@ export async function chat(host: ChatHost): Promise<void> {
         }, reject);
       }
 
+      function openCatalog(line: string): boolean {
+        const command = /^\/(skills|mcp)(?:\s+list)?$/u.exec(line)?.[1];
+        if (!host.catalogs || (command !== 'skills' && command !== 'mcp')) return false;
+        try {
+          if (
+            command === 'skills' &&
+            (!current || (!isPending(current) && current.status !== 'running'))
+          ) {
+            host.refreshSkills?.();
+          }
+          view.catalog = new CatalogPanel(
+            command === 'skills' ? 'Skills' : 'MCP',
+            host.catalogs[command],
+            view.changed,
+            () => {
+              view.catalog = undefined;
+              view.changed();
+              drain();
+            },
+            () => !current || (!isPending(current) && current.status !== 'running'),
+          );
+          view.changed();
+        } catch (error) {
+          terminal.error(error);
+        }
+        return true;
+      }
+
       editor = new TerminalEditor(process.stdin, process.stdout, {
         commands: hints,
+        onOverlayKey(value, key) {
+          if (!view.catalog) return false;
+          view.catalog.key(value, key);
+          return true;
+        },
         onChange: view.changed,
         onCycleMode: cycle,
         onExit: requestExit,
@@ -351,7 +392,7 @@ export async function chat(host: ChatHost): Promise<void> {
             terminal.note(
               'Команда доступна после текущего запроса. Очередь можно посмотреть через /queue.',
             );
-          } else {
+          } else if (!openCatalog(line)) {
             run(line);
           }
         },

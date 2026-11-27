@@ -17,6 +17,7 @@ export interface EditorView {
 
 interface EditorOptions {
   commands?(): CommandHint[];
+  onOverlayKey?(value: string | undefined, key: EditorKey): boolean;
   onChange(): void;
   onSubmit(text: string): void;
   onCycleMode(direction: 1 | -1): void;
@@ -351,6 +352,7 @@ export class TerminalEditor {
   }
 
   private readonly onKey = (value: string | undefined, key: EditorKey): void => {
+    if (this.options.onOverlayKey?.(value, key)) return;
     const action = this.buffer.key(value, key);
     if (!action) return;
     switch (action.type) {

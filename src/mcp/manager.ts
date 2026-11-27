@@ -7,6 +7,7 @@ import { openMcpConfiguration } from './index.js';
 interface Override {
   additions: Record<string, unknown>;
   disabled: string[];
+  inactive?: string[];
 }
 const knownId = /^[a-z][a-z0-9-]{0,30}$/;
 
@@ -28,8 +29,28 @@ export class McpManager {
   }
 
   definitions() {
+    return this.configured().filter(({ enabled }) => enabled);
+  }
+
+  configured() {
     const profile = this.readOverrides();
-    return this.apply(profile);
+    return this.apply(profile).map((server) => ({
+      ...server,
+      enabled: !(profile.inactive ?? []).includes(server.id),
+    }));
+  }
+
+  setEnabled(id: string, enabled: boolean): void {
+    this.checkId(id);
+    const profile = this.readOverrides();
+    if (!this.apply(profile).some((server) => server.id === id)) {
+      throw new Error(`Сервер ${id} не настроен`);
+    }
+    const inactive = new Set(profile.inactive);
+    if (enabled) inactive.delete(id);
+    else inactive.add(id);
+    profile.inactive = [...inactive];
+    this.save(profile);
   }
 
   private apply(profile: Override) {
@@ -61,7 +82,7 @@ export class McpManager {
 
   add(id: string, definition: unknown, cwd: string): void {
     this.checkId(id);
-    if (this.definitions().some((server) => server.id === id)) {
+    if (this.configured().some((server) => server.id === id)) {
       throw new Error(`Сервер ${id} уже настроен. Удалите старую запись перед заменой.`);
     }
     const server = record(definition);
@@ -70,16 +91,18 @@ export class McpManager {
     const added = server.url ? server : { ...server, cwd: resolve(cwd, String(server.cwd ?? '.')) };
     profile.additions = { ...profile.additions, [id]: added };
     profile.disabled = profile.disabled.filter((item) => item !== id);
+    profile.inactive = profile.inactive?.filter((item) => item !== id);
     this.apply(profile);
     this.save(profile);
   }
 
   remove(id: string): void {
     this.checkId(id);
-    if (!this.definitions().some((server) => server.id === id))
+    if (!this.configured().some((server) => server.id === id))
       throw new Error(`Сервер ${id} не настроен`);
     const profile = this.readOverrides();
     delete profile.additions[id];
+    profile.inactive = profile.inactive?.filter((item) => item !== id);
     profile.disabled = [...new Set([...profile.disabled, id])];
     this.save(profile);
   }

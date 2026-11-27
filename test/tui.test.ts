@@ -120,7 +120,7 @@ const canOpenPty =
   spawnSync('python3', ['-c', 'import pty, fcntl, termios'], { timeout: 1500 }).status === 0;
 
 test(
-  'interactive TTY edits while streaming, updates only changed rows and drains queued turns after approval',
+  'interactive TTY renders changed rows, queues turns and controls skill and MCP catalogs',
   { skip: !canOpenPty && 'Python 3 with Unix PTY support is required', timeout: 20_000 },
   async (t) => {
     const directory = mkdtempSync(join(realpathSync(tmpdir()), 'workbench-tui-'));
@@ -314,6 +314,23 @@ test(
     await key('/deny\r', /Second queued turn done\.[\s\S]*?завершён/u);
     assert.equal(requests[4]?.messages.at(-1)?.content, 'Queued second.');
     assert.ok(requests[4]?.messages.some(({ content }) => content === 'Decision received.'));
+
+    await key('/skills list\r', /╭─ Skills · 1\/3/u);
+    await key('\u001b[B', /› ● presentation-design/u);
+    await key('progress', /Поиск › progress/u);
+    await key('\r', /› ○ progress-summary · выключен · ≈ \d+ токенов/u);
+    await key('\u0005', /каталог выключен/u);
+    await key('\u0005', /каталог включён/u);
+    await key('\u001b', /› Сообщение или \/команда/u);
+
+    await key('/mcp list\r', /› ● tracker · подключён · stdio/u);
+    await key('tracker', /Поиск › tracker/u);
+    await key('\r', /› ○ tracker · выключен · stdio/u);
+    await key('\u001b', /› Сообщение или \/команда/u);
+    await key('/mcp list\r', /› ○ tracker · выключен · stdio/u);
+    await key('\r', /› ● tracker · подключён · stdio/u);
+    await key('\u0012', /Проверка завершена/u);
+    await key('\u001b', /› Сообщение или \/команда/u);
 
     child.stdin.write('/exit\r');
     const [code] = await closed;

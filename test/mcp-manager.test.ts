@@ -25,6 +25,15 @@ test('configured MCP overlays persist after reopening, remove a default and rest
     () => create().add('tracker', settings.servers.tracker, dirname(config)),
     /уже настроен/u,
   );
+  create().setEnabled('tracker', false);
+  assert.equal(create().configured()[0]?.enabled, false);
+  assert.deepEqual(await create().status(), []);
+  assert.throws(
+    () => create().add('tracker', settings.servers.tracker, dirname(config)),
+    /уже настроен/u,
+  );
+  create().setEnabled('tracker', true);
+  assert.equal((await create().status())[0]?.status, 'connected');
   create().remove('tracker');
   assert.deepEqual(create().definitions(), []);
   assert.throws(() => create().remove('tracker'), /не настроен/u);

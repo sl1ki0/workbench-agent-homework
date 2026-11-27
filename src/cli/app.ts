@@ -7,6 +7,7 @@ import type { McpConnection } from '../mcp/index.js';
 import { Workspace, readPolicy } from '../workspace/index.js';
 import { Terminal, type CliRun } from './format.js';
 import { isPending, pendingHelp, required, resumeRun, startArgs } from './actions.js';
+import { projectCatalogs } from './catalog-sources.js';
 import { chat } from './chat.js';
 import { runEvaluationCommand } from './eval-operations.js';
 import { inventory } from './inventory.js';
@@ -152,7 +153,7 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
       return 0;
     }
     if (command === 'skills') {
-      if (rest[0]) changeSkillSelection(options, rest[0], rest[1]);
+      if (rest[0] && rest[0] !== 'list') changeSkillSelection(options, rest[0], rest[1]);
       showSkills(options, terminal);
       return 0;
     }
@@ -204,6 +205,16 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
     }
     agent = rebuild();
 
+    async function reconnect() {
+      const next = await projectMcp(options)?.connect();
+      try {
+        await mcp?.dispose();
+      } finally {
+        mcp = next;
+        rebuild();
+      }
+    }
+
     switch (command) {
       case 'chat':
         if (rest.length)
@@ -224,6 +235,7 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
             ? (id) => extensions.doctor?.(id, options, terminal)
             : undefined,
           refreshSkills: rebuild,
+          catalogs: projectCatalogs(options, resources, rebuild, reconnect),
           skills(action, name) {
             if (action) {
               changeSkillSelection(options, action, name);
@@ -235,13 +247,10 @@ export async function runCli(args: string[], extensions: CliExtensions = {}): Pr
             const action = args[0] ?? 'list';
             if (action !== 'test') await runMcpCommand(args, options, terminal);
             if (['test', 'add', 'remove'].includes(action)) {
-              const next = await projectMcp(options)?.connect();
-              await mcp?.dispose();
-              mcp = next;
-              rebuild();
+              await reconnect();
               if (screen) screen.showInventory();
               else if (action === 'test') {
-                for (const entry of next?.initialEvents ?? [])
+                for (const entry of mcp?.initialEvents ?? [])
                   terminal.event({
                     ...entry,
                     id: '',

@@ -6,6 +6,7 @@ import { summarizeUsage } from '../runtime/stats.js';
 import type { UsageSummary } from '../runtime/types.js';
 import type { TerminalEditor } from './editor.js';
 import { type CliRun, Terminal, terminalText } from './format.js';
+import type { CatalogPanel } from './catalog-panel.js';
 import { Footer } from './footer.js';
 import type { Inventory } from './inventory.js';
 
@@ -71,6 +72,7 @@ export class ChatScreen {
   private committedText = '';
   private closed = false;
   editor?: TerminalEditor;
+  catalog?: CatalogPanel;
 
   constructor(
     private readonly stream: WriteStream,
@@ -260,10 +262,56 @@ export class ChatScreen {
     return value;
   }
 
+  private paintCatalog(panel: CatalogPanel, width: number, height: number): void {
+    const header = height >= 2;
+    const footer = height >= 5;
+    const details = height >= 14 ? 2 : height >= 8 ? 1 : 0;
+    const view = panel.view(Math.min(12, height - 1 - Number(header) - Number(footer) - details));
+    const rows: string[] = [];
+    const add = (text: string, color: string) =>
+      rows.push(this.paintColor(color, clipped(terminalText(text), width)));
+    if (header) {
+      const status = view.subtitle ? ` · ${view.subtitle}` : '';
+      add(`╭─ ${view.title} · ${view.position}/${view.count}${status}`, '1;36');
+    }
+    const row = rows.length;
+    const label = 'Поиск › ';
+    const query = view.query.text.replace(/\s+/gu, ' ');
+    const prefix = view.query.text.slice(0, view.query.cursor).replace(/\s+/gu, ' ');
+    const column = Math.min(width - 1, stringWidth(label + prefix));
+    add(label + query, '0');
+    if (rows.length < height - Number(footer) && !view.entries.length) add('  Совпадений нет', '2');
+    for (const [index, entry] of view.entries.entries()) {
+      if (rows.length >= height - Number(footer) - details) break;
+      const current = index === view.index;
+      add(
+        `${current ? '›' : ' '} ${entry.enabled ? '●' : '○'} ${entry.id} · ${entry.state}`,
+        current ? '1;36' : '0',
+      );
+    }
+    if (details && (view.notice || view.selected?.detail)) {
+      const detail = terminalText(view.notice || view.selected?.detail || '').replace(/\s+/gu, ' ');
+      const lines = wrap(detail, width - 2);
+      for (const [index, line] of lines.slice(0, details).entries()) {
+        add(
+          '  ' + line + (index + 1 === details && lines.length > details ? '…' : ''),
+          view.notice ? '1;33' : '2',
+        );
+      }
+    }
+    if (footer) add(`╰─ ${view.keys}`, '2;36');
+    const output = this.footer.render({ rows, row, column, width, height }, this.takeTranscript());
+    if (output) this.stream.write(output);
+  }
+
   private paint(): void {
     if (this.closed || !this.editor) return;
     const width = Math.max(8, (this.stream.columns || 80) - 1);
     const height = this.stream.rows || 24;
+    if (this.catalog) {
+      this.paintCatalog(this.catalog, width, height);
+      return;
+    }
     const view = this.editor.view();
     const state = this.state();
     const rows: string[] = [];
