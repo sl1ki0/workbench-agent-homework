@@ -977,13 +977,17 @@ function marketRows(entries, actions, catalog = false) {
   return list;
 }
 
+function marketEntries(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.entries ?? payload?.items ?? [];
+}
+
 async function marketView() {
   const actions = state.operations.market || [];
   if (!actions.length) return el('p', '', 'Marketplace не подключён.');
   const view = el('div', 'cards');
   const entries = actions.includes('list') ? await api('/api/market/list', {}) : [];
-  const installed = entries.entries || entries.items || (Array.isArray(entries) ? entries : []);
-  view.append(card('Установленные скиллы'), marketRows(installed, actions));
+  view.append(card('Установленные скиллы'), marketRows(marketEntries(entries), actions));
   if (actions.includes('search')) {
     const form = el('form', 'card');
     const query = textInput('Имя или описание');
@@ -999,7 +1003,7 @@ async function marketView() {
       result.replaceChildren(el('p', '', 'Поиск…'));
       try {
         const found = await api('/api/market/search', { query: query.value });
-        result.replaceChildren(marketRows(found.entries || found, actions, true));
+        result.replaceChildren(marketRows(marketEntries(found), actions, true));
       } catch (error) {
         result.replaceChildren(el('p', '', error.message));
       }
@@ -1017,7 +1021,7 @@ async function marketView() {
       button(title, async () => {
         try {
           const found = await api(`/api/market/${action}`, {});
-          results.replaceChildren(marketRows(found.entries || found, actions, action === 'news'));
+          results.replaceChildren(marketRows(marketEntries(found), actions, action === 'news'));
         } catch (error) {
           notice(error, true);
         }
