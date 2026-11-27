@@ -1,0 +1,11 @@
+✔ corrects the control project through tools, preserves its tests and runs Bash (439.5265ms)
+✔ diff and rollback after restart cover created, modified and deleted files only (213.535792ms)
+✔ rollback conflict is atomic across all changed files (180.031625ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 897.074959

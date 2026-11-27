@@ -1,0 +1,1 @@
+{"checks":[{"registry":"demo","count":0,"newSkills":[],"newVersions":[],"error":"ENOENT: no such file or directory, open '<DEMO_TMP>/registry/index.json'","reportError":true}],"updates":[]}

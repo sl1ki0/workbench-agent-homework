@@ -1,0 +1,70 @@
+{
+  "case_id": "mcp-failure",
+  "variant": "A",
+  "trial": 2,
+  "session_id": "5ad3056c-84bf-43a1-868c-31e0e4baac14",
+  "run_id": "d9db6907-21ce-4f46-9b6e-36ce00ec9e7c",
+  "status": "completed",
+  "outcome_pass": true,
+  "routing_pass_or_na": false,
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 8766,
+  "output_tokens": 257,
+  "usage": {
+    "input": {
+      "total": 8766,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "output": {
+      "total": 257,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 8655,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 7,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "mcp_tracker_list_tasks": 2,
+    "write_file": 3,
+    "read_file": 1
+  },
+  "mcp_calls": {
+    "tracker/list_tasks": 2
+  },
+  "error": null,
+  "duration_ms": 9898,
+  "artifact": "trials/mcp-failure/A2/tracker-status.md",
+  "journal": "trials/mcp-failure/A2/events.jsonl",
+  "spent": {
+    "modelCalls": 7,
+    "toolCalls": 6,
+    "sideEffects": 3,
+    "resultBytes": 792
+  },
+  "outcome_checks": [
+    "Артефакт сообщает об ограничении без неподтверждённых данных."
+  ],
+  "routing_checks": [
+    "Ожидались [\"open-task-report\"].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "mcp_tracker_list_tasks подтверждён результатом call_jm1j8pvg.",
+    "write_file подтверждён результатом call_4ftvnlcf."
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "case_id": "progress-variant",
+  "variant": "A",
+  "trial": 3,
+  "session_id": "628a0d99-0b8d-41ef-8360-4aba9d407b6f",
+  "run_id": "89c7c4d3-60d2-4223-aefd-a1a6ebe286f0",
+  "status": "failed",
+  "outcome_pass": false,
+  "routing_pass_or_na": "n/a",
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 8811,
+  "output_tokens": 592,
+  "usage": {
+    "input": {
+      "total": 8811,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "output": {
+      "total": 592,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 8647,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 7,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 2,
+    "write_file": 4
+  },
+  "mcp_calls": {},
+  "error": "Модель вернула пустой ответ",
+  "duration_ms": 17780,
+  "artifact": "trials/progress-variant/A3/progress-summary.md",
+  "journal": "trials/progress-variant/A3/events.jsonl",
+  "spent": {
+    "modelCalls": 7,
+    "toolCalls": 6,
+    "sideEffects": 3,
+    "resultBytes": 912
+  },
+  "outcome_checks": [
+    "Получены строки [[\"Анна\",\"26\",\"-\"],[\"Борис\",\"14\",\"-\"],[\"Вера\",\"0\",\"-\"],[\"Итого\",\"39\",\"-\"]]. Ожидались [[\"Анна\",\"1\",\"26\"],[\"Борис\",\"2\",\"14\"],[\"Вера\",\"0\",\"0\"],[\"Итого\",\"3\",\"40\"]].",
+    "Пропуск L5 не отмечен."
+  ],
+  "routing_checks": "n/a",
+  "tool_checks": [
+    "read_file подтверждён результатом call_6jnnqfwu.",
+    "write_file подтверждён результатом call_382bvrtm."
+  ]
+}

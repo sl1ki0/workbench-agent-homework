@@ -1,0 +1,66 @@
+{
+  "case_id": "no-skill",
+  "variant": "A",
+  "trial": 2,
+  "session_id": "d027b67a-2e28-47c3-91c5-10ffff0445f5",
+  "run_id": "7537f2df-6d29-4b23-a8ec-5d9835b7662e",
+  "status": "budget_exhausted",
+  "outcome_pass": false,
+  "routing_pass_or_na": "n/a",
+  "tool_pass": false,
+  "trial_pass": false,
+  "input_tokens": 13926,
+  "output_tokens": 407,
+  "usage": {
+    "input": {
+      "total": 13926,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "output": {
+      "total": 407,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 13578,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 12,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 4,
+    "write_file": 3,
+    "delete_file": 5
+  },
+  "mcp_calls": {},
+  "error": "Model request limit",
+  "duration_ms": 13932,
+  "artifact": "trials/no-skill/A2/evidence.txt",
+  "journal": "trials/no-skill/A2/events.jsonl",
+  "spent": {
+    "modelCalls": 12,
+    "toolCalls": 12,
+    "sideEffects": 3,
+    "resultBytes": 1261
+  },
+  "outcome_checks": [
+    "Байты отличаются (получено 119, эталон 120)."
+  ],
+  "routing_checks": "n/a",
+  "tool_checks": [
+    "Вне правил сценария вызваны delete_file.",
+    "read_file подтверждён результатом call_p7dzsfgd.",
+    "write_file подтверждён результатом call_farvua17."
+  ]
+}

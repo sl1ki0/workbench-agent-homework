@@ -1,0 +1,72 @@
+{
+  "case_id": "mcp-failure",
+  "variant": "B",
+  "trial": 1,
+  "session_id": "e4bbbdf0-2435-4a5c-9314-470557c010a8",
+  "run_id": "217e14c1-467c-4fb8-8671-bfde38db541b",
+  "status": "completed",
+  "outcome_pass": true,
+  "routing_pass_or_na": false,
+  "tool_pass": false,
+  "trial_pass": false,
+  "input_tokens": 11641,
+  "output_tokens": 310,
+  "usage": {
+    "input": {
+      "total": 11641,
+      "known": 9,
+      "requests": 9,
+      "status": "complete"
+    },
+    "output": {
+      "total": 310,
+      "known": 9,
+      "requests": 9,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 10679,
+      "known": 9,
+      "requests": 9,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 9,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "mcp_tracker_list_tasks": 2,
+    "write_file": 3,
+    "read_file": 2,
+    "delete_file": 1
+  },
+  "mcp_calls": {
+    "tracker/list_tasks": 2
+  },
+  "error": null,
+  "duration_ms": 11747,
+  "artifact": "trials/mcp-failure/B1/tracker-status.md",
+  "journal": "trials/mcp-failure/B1/events.jsonl",
+  "spent": {
+    "modelCalls": 9,
+    "toolCalls": 8,
+    "sideEffects": 4,
+    "resultBytes": 1025
+  },
+  "outcome_checks": [
+    "Артефакт сообщает об ограничении без неподтверждённых данных."
+  ],
+  "routing_checks": [
+    "Ожидались [\"open-task-report\"].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "Вне правил сценария вызваны delete_file.",
+    "mcp_tracker_list_tasks подтверждён результатом call_44ha8bt7.",
+    "write_file подтверждён результатом call_5htbkud0."
+  ]
+}

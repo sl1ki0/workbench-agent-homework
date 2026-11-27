@@ -1,0 +1,1 @@
+{"enabled":true,"intervalMinutes":1,"last":{"time":"2026-11-27T20:20:09.245Z","status":"completed","message":"Релизов в индексе: 3"},"sources":[{"registry":"demo","pollingEnabled":true,"autoEnabled":false,"intervalMinutes":1,"nextCheck":1795810869229,"last":{"time":"2026-11-27T20:20:09.245Z","status":"completed","message":"Релизов в индексе: 3"}}]}

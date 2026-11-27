@@ -1,0 +1,70 @@
+{
+  "case_id": "progress-variant",
+  "variant": "B",
+  "trial": 2,
+  "session_id": "7c0ffaf1-4525-4974-bdc7-2878e9bd4cd9",
+  "run_id": "3fdeee36-c1f1-4171-85d9-231d009d1a82",
+  "status": "budget_exhausted",
+  "outcome_pass": false,
+  "routing_pass_or_na": true,
+  "tool_pass": false,
+  "trial_pass": false,
+  "input_tokens": 20724,
+  "output_tokens": 293,
+  "usage": {
+    "input": {
+      "total": 20724,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "output": {
+      "total": 293,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 20409,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 12,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {
+    "progress-summary": 1
+  },
+  "tool_calls": {
+    "read_file": 6,
+    "load_skill": 1,
+    "list_files": 5
+  },
+  "mcp_calls": {},
+  "error": "Model request limit",
+  "duration_ms": 10739,
+  "artifact": null,
+  "journal": "trials/progress-variant/B2/events.jsonl",
+  "spent": {
+    "modelCalls": 12,
+    "toolCalls": 12,
+    "sideEffects": 0,
+    "resultBytes": 2075
+  },
+  "outcome_checks": [
+    "Файл результата отсутствует."
+  ],
+  "routing_checks": [
+    "Ожидались [\"progress-summary\"].",
+    "Попытки [\"progress-summary\"]; загрузки [\"progress-summary\"]."
+  ],
+  "tool_checks": [
+    "read_file подтверждён результатом call_xaoul97e.",
+    "Не найден обязательный успешный вызов в нужном порядке: write_file {\"path\":\"progress-summary.md\"}."
+  ]
+}

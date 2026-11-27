@@ -1,0 +1,288 @@
+{
+  "schema": 1,
+  "startedAt": "2026-11-27T20:24:18.333Z",
+  "experiment": "version-update",
+  "baseline": {
+    "name": "progress-summary",
+    "version": "1.0.0",
+    "registry": "demo",
+    "digest": "f1785e3fd661d3867ff6aaf7bbd79c383b10b95568baf7bf672ea4353cf86d41"
+  },
+  "candidate": {
+    "name": "progress-summary",
+    "version": "1.1.0",
+    "registry": "demo",
+    "digest": "6228537d3a97c8eedc7c5c71d405d6c52a69d8ea8d5f94c892a060357cda64ca"
+  },
+  "acceptance": [
+    "Ровно пять сценариев и по три независимых попытки каждой версии с журналами.",
+    "Кандидат сохраняет или повышает число полных зачётов в каждом сценарии и получает минимум один зачёт в каждом.",
+    "Каждая попытка кандидата проходит проверку инструментов и не содержит отказов policy.",
+    "Расход токенов сравнивается по полным метрикам и не ограничивает допуск. Приоритет учебной проверки — корректность и соблюдение ограничений."
+  ],
+  "configurations": {
+    "A": {
+      "skills": true
+    },
+    "B": {
+      "skills": true
+    }
+  },
+  "order": [
+    [
+      "open-tasks",
+      "A",
+      1
+    ],
+    [
+      "open-tasks",
+      "B",
+      1
+    ],
+    [
+      "open-tasks",
+      "A",
+      2
+    ],
+    [
+      "open-tasks",
+      "B",
+      2
+    ],
+    [
+      "open-tasks",
+      "A",
+      3
+    ],
+    [
+      "open-tasks",
+      "B",
+      3
+    ],
+    [
+      "progress",
+      "A",
+      1
+    ],
+    [
+      "progress",
+      "B",
+      1
+    ],
+    [
+      "progress",
+      "A",
+      2
+    ],
+    [
+      "progress",
+      "B",
+      2
+    ],
+    [
+      "progress",
+      "A",
+      3
+    ],
+    [
+      "progress",
+      "B",
+      3
+    ],
+    [
+      "no-skill",
+      "A",
+      1
+    ],
+    [
+      "no-skill",
+      "B",
+      1
+    ],
+    [
+      "no-skill",
+      "A",
+      2
+    ],
+    [
+      "no-skill",
+      "B",
+      2
+    ],
+    [
+      "no-skill",
+      "A",
+      3
+    ],
+    [
+      "no-skill",
+      "B",
+      3
+    ],
+    [
+      "mcp-failure",
+      "A",
+      1
+    ],
+    [
+      "mcp-failure",
+      "B",
+      1
+    ],
+    [
+      "mcp-failure",
+      "A",
+      2
+    ],
+    [
+      "mcp-failure",
+      "B",
+      2
+    ],
+    [
+      "mcp-failure",
+      "A",
+      3
+    ],
+    [
+      "mcp-failure",
+      "B",
+      3
+    ],
+    [
+      "progress-variant",
+      "A",
+      1
+    ],
+    [
+      "progress-variant",
+      "B",
+      1
+    ],
+    [
+      "progress-variant",
+      "A",
+      2
+    ],
+    [
+      "progress-variant",
+      "B",
+      2
+    ],
+    [
+      "progress-variant",
+      "A",
+      3
+    ],
+    [
+      "progress-variant",
+      "B",
+      3
+    ]
+  ],
+  "mode": "auto",
+  "limits": {
+    "modelCalls": 12,
+    "toolCalls": 24,
+    "sideEffects": 8,
+    "resultBytes": 64000
+  },
+  "model": {
+    "provider": "ollama",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "model": "workbench-qwen3.5:2b",
+    "timeoutMs": 45000,
+    "temperature": 0.2,
+    "maxTokens": 512,
+    "reasoningEffort": "none"
+  },
+  "scenarios": [
+    {
+      "id": "open-tasks",
+      "prompt": "Составь отчёт по открытым задачам учебного трекера. Сохрани его в open-tasks.md в виде Markdown-таблицы с колонками ID и Название. Упорядочь строки по ID.",
+      "source": null,
+      "artifact": "open-tasks.md",
+      "expectedSkill": "open-task-report"
+    },
+    {
+      "id": "progress",
+      "prompt": "Сделай короткую Markdown-сводку прогресса по progress.json. Сохрани в progress-summary.md. Приведи таблицу с колонками Ученик, Завершено, Минуты. По каждому ученику посчитай только завершённые занятия и их суммарные минуты. Добавь строку Итого.",
+      "source": "progress.json",
+      "artifact": "progress-summary.md",
+      "expectedSkill": "progress-summary"
+    },
+    {
+      "id": "no-skill",
+      "prompt": "Скопируй содержимое файла note.txt без изменений в evidence.txt.",
+      "source": "note.txt",
+      "artifact": "evidence.txt",
+      "expectedSkill": null
+    },
+    {
+      "id": "mcp-failure",
+      "prompt": "Запроси открытые задачи учебного трекера и сохрани сводку в tracker-status.md. Если источник недоступен, кратко опиши ограничение в этом файле и не придумывай задачи или их количество.",
+      "source": null,
+      "artifact": "tracker-status.md",
+      "expectedSkill": "open-task-report"
+    },
+    {
+      "id": "progress-variant",
+      "prompt": "Собери progress-summary.md по progress.json. Напиши Markdown-таблицу Ученик, Завершено, Минуты. Включи всех учеников. Считай только завершённые занятия, а в продолжительность включай только известные минуты. Не подставляй пропущенные значения. Под таблицей отметь занятие, у которого отсутствует продолжительность. Последняя строка таблицы — Итого.",
+      "source": "progress.json",
+      "artifact": "progress-summary.md",
+      "expectedSkill": "progress-summary"
+    }
+  ],
+  "sourceDigests": {
+    "config/Modelfile.eval": "f9935617a13506f145e59039af06d3394e179b273c2330c33329e9b717c50582",
+    "config/mcp.json": "4db29e2fadde594fffca7d9b0e297f9f8613db70a10f7800ee8f40902df97a66",
+    "docs/evaluation-protocol.md": "e564937435775cf18be99da39782c2cf226a1b06d7779d29cbbff42bd3bfba42",
+    "eval/cases.ts": "e2dde14b47ff908f680a29d993922cf6042e2e2ea4300612ee633aba686f8a96",
+    "eval/checks/markdown.ts": "1b497520eedbd6d816ec96c70eff8fa64af1bf33600fe7509cbbf66bee0f4c12",
+    "eval/checks/mcp-failure.ts": "7b271009ef7d6ba66bffb14236352d3564a4c10f249d4056b7c41eada607e61d",
+    "eval/checks/no-skill.ts": "b6ce79f6d50f9655ce4611d82fa0fea8bcfe24b535a6508e806de63e55761889",
+    "eval/checks/open-tasks.ts": "6e2d4798365c31aa0bc968b8a8e97ce13c30dbe6b3b2c93b9458a6483f2a13d2",
+    "eval/checks/progress.ts": "28b092feebdb6c1213634d711c6834adfab40dd340d6ce58f866c30cee231d3a",
+    "eval/fixtures/mcp-fault.json": "c2cd9fb632c96a78ae3b67ced3ae43b2ff870c3fae00e777c0ce3d61062036b6",
+    "eval/fixtures/no-skill/note.txt": "e0d6888e2e2f6141a4d7363eb51584357c0ec231083dc35bd538d5987abeb655",
+    "eval/fixtures/policy.json": "27e0c6668ec035c6629b34dfd3196a34238e999e9ba5125bbd1c891804a6d2aa",
+    "eval/fixtures/progress-variant/progress.json": "d3bdc52bd3ce4dd64cfc897d6b0947780f488cd0703d4cfa5f5cd823b24e24dc",
+    "eval/fixtures/progress/progress.json": "7db4801e0719ce4b8712044dc0daca22ccf095462cb4949e80c881517af04cc6",
+    "eval/index.ts": "66a71b688a80bd7f26e062d8f15503065d5ec99a2e58d80c85e15279076ff286",
+    "eval/mcp-fault-server.ts": "12f2b0bc916bf1cea2e5e962a6a622a94e917ce5bfe9fa86f92769192cf12a2e",
+    "eval/report.ts": "968c9dfbbc78f26593a4ffdf35edfba163791fbe1ca7b5b99dc5cc66846d7a96",
+    "eval/runner.ts": "fabae358ea0264e6212f40d6b2da96d148909019ac5feb4b6c178fb68e6c8bd7",
+    "eval/scoring.ts": "1cb047ecef15e530e6a6f6683ff74a96310ab23d817b63846b38750dc485fe53",
+    "package-lock.json": "7e6bff883dc4d809f7a8c0eac840973678821c5237c2ab76fc3cf75477f24cff",
+    "skills/open-task-report/SKILL.md": "65b292145bbd813cf29580f7aa695d3d4963acbb9d732ea53cd249bcead0e521",
+    "skills/presentation-design/SKILL.md": "2c8ed3ba1d8d84b150f5ce1324bcf353e8341dce9cab8e76bfea99120b9da9d8",
+    "skills/progress-summary/SKILL.md": "f1785e3fd661d3867ff6aaf7bbd79c383b10b95568baf7bf672ea4353cf86d41",
+    "src/market/files.ts": "756fcc0bbfce70f94a353887c18e9b64c07ba0daec7ac1fd0c0265a8c018c3d7",
+    "src/mcp/config.ts": "16e567eb0aeb2060c065ed3cbde1bc13a9f8b229d46e5466d883c9302941327e",
+    "src/mcp/index.ts": "ce5581d05c364f9e624f052970e1ce40ac1fc6096d76e623b2c2245336da77a3",
+    "src/mcp/manager.ts": "b96ead7df421b70ff883abd7b54182dadc4655e1b396674bb47f32e50d1424de",
+    "src/mcp/tasks.json": "879bc4bd8c3667ceddba3a33919972b72c6b19dbc24c7e8986fd6742775744fd",
+    "src/mcp/tracker-server.ts": "6f2708ac67e7362de541d4aabd25ffee2e743b38def766a1be54e0d4580dcfae",
+    "src/model/index.ts": "e1a142345788af6442adc6537139893f90f7f9a0f81e2989be4daf4341ff9da2",
+    "src/model/protocol.ts": "a90378ef2dae214c5d07929debcf4c552ef2e0b7b82fb2cc1c76d3c11cde6814",
+    "src/model/sse.ts": "ed1c9f822027a4043659a5c35895455d0c733ee577010b9346f67b2cb456bf2e",
+    "src/model/stream.ts": "49f4539a9d04c3efce0497f141574300a27bb205f0536af87154278bd1d733ef",
+    "src/model/visible-text.ts": "3b7b47008511f16d5aa85d8722d2868ddab0784fa3401b35d87fc4e346b2a69b",
+    "src/runtime/index.ts": "9a8072287ebba460d62f75e94da9c244a39af641b8056e5341df1673cbb0c122",
+    "src/runtime/plan.ts": "2ae78245c7afbf674935ca600680739b88c488a117d871c0b5a4155af229bc52",
+    "src/runtime/state.ts": "cc5321c5f008fb7ffef2bc12254566e9903501dbec14d9b425450fd396b075e4",
+    "src/runtime/stats.ts": "88347e3336babd7235ec5dea7bd7c2abe6650359fd724e287c7088c5f1ce50fe",
+    "src/runtime/tooling.ts": "dc75c47ab96ae07ae5de7ebc3680819252f5d8fed5ebf91b4dd19d41671cd21e",
+    "src/runtime/types.ts": "a781b5e511df0d68f736f5d5d97b57eda01c72f73ad6df7db098f571f47bc810",
+    "src/skills/index.ts": "a04dae5dbcde8dbeb0432c84c3ff7881272a19e4b060a74adb7eba892f98f918",
+    "src/skills/selection.ts": "c8a8aec56bfb3fffecefb2cbef43197f709c5afd4831c2886af3656b76f458b5",
+    "src/types.ts": "2b35336a87e9754c492fca391be543a562a60e4345233c49d7493200b3bc4d55",
+    "src/workspace/bash.ts": "e8a54a9dfd3ae06afe36be956ce23d296f52f3f3d541b0e657f10647ba526abd",
+    "src/workspace/index.ts": "48698b4341b5bf10184cee44cfaf4d19a5d0271edf77e40ba63cdc7f78bdb0c3",
+    "src/workspace/policy.ts": "467f6f9bf537ec75dd19c25f1a83454cd440547ef0633d1a8ea0964d9baaf738",
+    "src/workspace/tools.ts": "c1363bca0dcb8f31551fab2e6a1a1eb7bf798b3f55cc6635983cbf096e05b44d",
+    ".agent/acceptance/demo-state/market/versions/progress-summary/1.0.0/progress-summary/SKILL.md": "f1785e3fd661d3867ff6aaf7bbd79c383b10b95568baf7bf672ea4353cf86d41",
+    ".agent/acceptance/demo-state/market/versions/progress-summary/1.1.0/progress-summary/SKILL.md": "6228537d3a97c8eedc7c5c71d405d6c52a69d8ea8d5f94c892a060357cda64ca",
+    "src/market/gate.ts": "1bc30d0cc595e4a2a7a6a6b090bb67f2837481289a0beafecda27fc6dba0fc32"
+  }
+}

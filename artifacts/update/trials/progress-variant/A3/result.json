@@ -1,0 +1,68 @@
+{
+  "case_id": "progress-variant",
+  "variant": "A",
+  "trial": 3,
+  "session_id": "f2e9657a-6e15-4664-96e0-cb259174f021",
+  "run_id": "fcfbe140-2fad-4b61-9fb6-5bb43537cc70",
+  "status": "completed",
+  "outcome_pass": false,
+  "routing_pass_or_na": false,
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 9025,
+  "output_tokens": 484,
+  "usage": {
+    "input": {
+      "total": 9025,
+      "known": 6,
+      "requests": 6,
+      "status": "complete"
+    },
+    "output": {
+      "total": 484,
+      "known": 6,
+      "requests": 6,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 8809,
+      "known": 6,
+      "requests": 6,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 6,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 2,
+    "write_file": 3
+  },
+  "mcp_calls": {},
+  "error": null,
+  "duration_ms": 19704,
+  "artifact": "trials/progress-variant/A3/progress-summary.md",
+  "journal": "trials/progress-variant/A3/events.jsonl",
+  "spent": {
+    "modelCalls": 6,
+    "toolCalls": 5,
+    "sideEffects": 3,
+    "resultBytes": 1163
+  },
+  "outcome_checks": [
+    "Ожидалась таблица с последней строкой «Итого».",
+    "Пропуск L5 не отмечен."
+  ],
+  "routing_checks": [
+    "Ожидались [\"progress-summary\"].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "read_file подтверждён результатом call_ax86a8zp.",
+    "write_file подтверждён результатом call_ldbytkpf."
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "case_id": "open-tasks",
+  "variant": "B",
+  "trial": 3,
+  "session_id": "ee9b14ae-659e-4f43-9c79-c70a3ba0401b",
+  "run_id": "f781010e-cbf1-43b4-ba10-cab53e90b1cb",
+  "status": "completed",
+  "outcome_pass": true,
+  "routing_pass_or_na": false,
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 5222,
+  "output_tokens": 224,
+  "usage": {
+    "input": {
+      "total": 5222,
+      "known": 4,
+      "requests": 4,
+      "status": "complete"
+    },
+    "output": {
+      "total": 224,
+      "known": 4,
+      "requests": 4,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 5209,
+      "known": 4,
+      "requests": 4,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 4,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "mcp_tracker_list_tasks": 1,
+    "write_file": 2
+  },
+  "mcp_calls": {
+    "tracker/list_tasks": 1
+  },
+  "error": null,
+  "duration_ms": 6984,
+  "artifact": "trials/open-tasks/B3/open-tasks.md",
+  "journal": "trials/open-tasks/B3/events.jsonl",
+  "spent": {
+    "modelCalls": 4,
+    "toolCalls": 3,
+    "sideEffects": 2,
+    "resultBytes": 425
+  },
+  "outcome_checks": [
+    "Строки таблицы совпали (3)."
+  ],
+  "routing_checks": [
+    "Ожидались [\"open-task-report\"].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "mcp_tracker_list_tasks подтверждён результатом call_wf3mgpmi.",
+    "write_file подтверждён результатом call_adlo8rih."
+  ]
+}

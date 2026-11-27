@@ -1,0 +1,65 @@
+{
+  "case_id": "progress-variant",
+  "variant": "A",
+  "trial": 1,
+  "session_id": "b1c46d01-8f49-49b6-903a-5af7ecad756d",
+  "run_id": "bbda686c-1a66-479e-9548-cb0be4bf126a",
+  "status": "budget_exhausted",
+  "outcome_pass": false,
+  "routing_pass_or_na": "n/a",
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 16221,
+  "output_tokens": 911,
+  "usage": {
+    "input": {
+      "total": 16221,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "output": {
+      "total": 911,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 15159,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 12,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 5,
+    "write_file": 7
+  },
+  "mcp_calls": {},
+  "error": "Model request limit",
+  "duration_ms": 29545,
+  "artifact": "trials/progress-variant/A1/progress-summary.md",
+  "journal": "trials/progress-variant/A1/events.jsonl",
+  "spent": {
+    "modelCalls": 12,
+    "toolCalls": 12,
+    "sideEffects": 7,
+    "resultBytes": 1306
+  },
+  "outcome_checks": [
+    "Ожидалась таблица с последней строкой «Итого».",
+    "Пропуск L5 не отмечен."
+  ],
+  "routing_checks": "n/a",
+  "tool_checks": [
+    "read_file подтверждён результатом call_vmmykle4.",
+    "write_file подтверждён результатом call_e9jzxhyr."
+  ]
+}

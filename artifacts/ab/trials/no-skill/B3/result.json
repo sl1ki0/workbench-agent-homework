@@ -1,0 +1,69 @@
+{
+  "case_id": "no-skill",
+  "variant": "B",
+  "trial": 3,
+  "session_id": "b533a4ad-8692-4a57-ac92-d4f1121f9500",
+  "run_id": "e767cad9-c5f7-4f5a-83c3-d8186a9dc33e",
+  "status": "completed",
+  "outcome_pass": false,
+  "routing_pass_or_na": true,
+  "tool_pass": false,
+  "trial_pass": false,
+  "input_tokens": 6361,
+  "output_tokens": 154,
+  "usage": {
+    "input": {
+      "total": 6361,
+      "known": 5,
+      "requests": 5,
+      "status": "complete"
+    },
+    "output": {
+      "total": 154,
+      "known": 5,
+      "requests": 5,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 6344,
+      "known": 5,
+      "requests": 5,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 5,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 1,
+    "write_file": 1,
+    "delete_file": 2
+  },
+  "mcp_calls": {},
+  "error": null,
+  "duration_ms": 5268,
+  "artifact": "trials/no-skill/B3/evidence.txt",
+  "journal": "trials/no-skill/B3/events.jsonl",
+  "spent": {
+    "modelCalls": 5,
+    "toolCalls": 4,
+    "sideEffects": 1,
+    "resultBytes": 376
+  },
+  "outcome_checks": [
+    "Байты отличаются (получено 119, эталон 120)."
+  ],
+  "routing_checks": [
+    "Ожидались [].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "Вне правил сценария вызваны delete_file.",
+    "read_file подтверждён результатом call_c64ctt50.",
+    "write_file подтверждён результатом call_l7x7zd5v."
+  ]
+}

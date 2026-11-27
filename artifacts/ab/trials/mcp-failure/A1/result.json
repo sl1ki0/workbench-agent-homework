@@ -1,0 +1,69 @@
+{
+  "case_id": "mcp-failure",
+  "variant": "A",
+  "trial": 1,
+  "session_id": "e2bdfbcd-0424-487b-a00f-1c6cb8fb9988",
+  "run_id": "b170d813-523c-44b7-9bf4-59d9aa4cd4de",
+  "status": "completed",
+  "outcome_pass": false,
+  "routing_pass_or_na": "n/a",
+  "tool_pass": false,
+  "trial_pass": false,
+  "input_tokens": 7111,
+  "output_tokens": 270,
+  "usage": {
+    "input": {
+      "total": 7111,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "output": {
+      "total": 270,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 5944,
+      "known": 7,
+      "requests": 7,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 7,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "mcp_tracker_list_tasks": 2,
+    "write_file": 2,
+    "read_file": 1,
+    "delete_file": 1
+  },
+  "mcp_calls": {
+    "tracker/list_tasks": 2
+  },
+  "error": null,
+  "duration_ms": 10248,
+  "artifact": null,
+  "journal": "trials/mcp-failure/A1/events.jsonl",
+  "spent": {
+    "modelCalls": 7,
+    "toolCalls": 6,
+    "sideEffects": 3,
+    "resultBytes": 924
+  },
+  "outcome_checks": [
+    "Файл результата отсутствует."
+  ],
+  "routing_checks": "n/a",
+  "tool_checks": [
+    "Вне правил сценария вызваны delete_file.",
+    "mcp_tracker_list_tasks подтверждён результатом call_141ub31s.",
+    "write_file подтверждён результатом call_mzu1gi2r."
+  ]
+}

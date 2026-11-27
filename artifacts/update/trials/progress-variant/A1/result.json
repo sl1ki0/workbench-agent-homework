@@ -1,0 +1,69 @@
+{
+  "case_id": "progress-variant",
+  "variant": "A",
+  "trial": 1,
+  "session_id": "70b7430a-05f9-43a7-bbb6-284adf43b6e3",
+  "run_id": "165e6b3e-4ba3-44f6-b5cb-b7348204fe8a",
+  "status": "budget_exhausted",
+  "outcome_pass": false,
+  "routing_pass_or_na": false,
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 20735,
+  "output_tokens": 822,
+  "usage": {
+    "input": {
+      "total": 20735,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "output": {
+      "total": 822,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 19895,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 12,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 5,
+    "list_files": 1,
+    "write_file": 6
+  },
+  "mcp_calls": {},
+  "error": "Model request limit",
+  "duration_ms": 26105,
+  "artifact": "trials/progress-variant/A1/progress-summary.md",
+  "journal": "trials/progress-variant/A1/events.jsonl",
+  "spent": {
+    "modelCalls": 12,
+    "toolCalls": 12,
+    "sideEffects": 6,
+    "resultBytes": 1826
+  },
+  "outcome_checks": [
+    "Получены строки [[\"Анна\",\"26\",\"-\"],[\"Борис\",\"14\",\"-\"],[\"Вера\",\"-\",\"-\"],[\"Итого\",\"38\",\"-\"]]. Ожидались [[\"Анна\",\"1\",\"26\"],[\"Борис\",\"2\",\"14\"],[\"Вера\",\"0\",\"0\"],[\"Итого\",\"3\",\"40\"]].",
+    "Пропуск L5 не отмечен."
+  ],
+  "routing_checks": [
+    "Ожидались [\"progress-summary\"].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "read_file подтверждён результатом call_a7yz23aj.",
+    "write_file подтверждён результатом call_aspr4fh1."
+  ]
+}

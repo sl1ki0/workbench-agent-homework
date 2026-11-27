@@ -1,0 +1,67 @@
+{
+  "case_id": "progress",
+  "variant": "B",
+  "trial": 2,
+  "session_id": "4fa38647-40d3-49ff-9437-8b670038150c",
+  "run_id": "14c3b899-9612-4a11-b807-9937fedd3625",
+  "status": "failed",
+  "outcome_pass": false,
+  "routing_pass_or_na": false,
+  "tool_pass": true,
+  "trial_pass": false,
+  "input_tokens": 14006,
+  "output_tokens": 764,
+  "usage": {
+    "input": {
+      "total": 14006,
+      "known": 9,
+      "requests": 9,
+      "status": "complete"
+    },
+    "output": {
+      "total": 764,
+      "known": 9,
+      "requests": 9,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 13781,
+      "known": 9,
+      "requests": 9,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 9,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 3,
+    "write_file": 5
+  },
+  "mcp_calls": {},
+  "error": "Модель вернула пустой ответ",
+  "duration_ms": 25438,
+  "artifact": "trials/progress/B2/progress-summary.md",
+  "journal": "trials/progress/B2/events.jsonl",
+  "spent": {
+    "modelCalls": 9,
+    "toolCalls": 8,
+    "sideEffects": 4,
+    "resultBytes": 1130
+  },
+  "outcome_checks": [
+    "Ожидалась таблица с последней строкой «Итого»."
+  ],
+  "routing_checks": [
+    "Ожидались [\"progress-summary\"].",
+    "Попытки []; загрузки []."
+  ],
+  "tool_checks": [
+    "read_file подтверждён результатом call_e1hk028t.",
+    "write_file подтверждён результатом call_bnmt2duy."
+  ]
+}

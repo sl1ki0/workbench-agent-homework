@@ -1,0 +1,64 @@
+{
+  "case_id": "progress",
+  "variant": "A",
+  "trial": 1,
+  "session_id": "1e302c5f-db41-4218-bc16-4a84bacaa7f3",
+  "run_id": "adaba826-f2e5-484a-9736-42de671defec",
+  "status": "completed",
+  "outcome_pass": true,
+  "routing_pass_or_na": "n/a",
+  "tool_pass": true,
+  "trial_pass": true,
+  "input_tokens": 16360,
+  "output_tokens": 1209,
+  "usage": {
+    "input": {
+      "total": 16360,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "output": {
+      "total": 1209,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "cached": {
+      "total": 15420,
+      "known": 12,
+      "requests": 12,
+      "status": "complete"
+    },
+    "reasoning": {
+      "total": null,
+      "known": 0,
+      "requests": 12,
+      "status": "unknown"
+    }
+  },
+  "skill_activations": {},
+  "tool_calls": {
+    "read_file": 2,
+    "write_file": 9
+  },
+  "mcp_calls": {},
+  "error": null,
+  "duration_ms": 40452,
+  "artifact": "trials/progress/A1/progress-summary.md",
+  "journal": "trials/progress/A1/events.jsonl",
+  "spent": {
+    "modelCalls": 12,
+    "toolCalls": 11,
+    "sideEffects": 8,
+    "resultBytes": 1353
+  },
+  "outcome_checks": [
+    "Строки таблицы совпали (4)."
+  ],
+  "routing_checks": "n/a",
+  "tool_checks": [
+    "read_file подтверждён результатом call_r0itp5ss.",
+    "write_file подтверждён результатом call_52m32fdd."
+  ]
+}
