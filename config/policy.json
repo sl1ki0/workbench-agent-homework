@@ -1,0 +1,17 @@
+{
+  "commands": {
+    "allow": ["python3 -m unittest -v"],
+    "deny": ["rm -rf ."]
+  },
+  "directories": {
+    "allow": ["."],
+    "deny": ["private", ".git"]
+  },
+  "files": {
+    "readOnly": ["test_order.py"]
+  },
+  "bash": {
+    "timeoutMs": 15000,
+    "maxOutputBytes": 65536
+  }
+}
